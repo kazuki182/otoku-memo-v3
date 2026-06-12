@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>おとくメモ</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">買い物お助けアプリ</p>
+        <h1>おとくメモ</h1>
+        <p class="lead">いつもの買い物を、声と価格メモでかしこく。</p>
+      </div>
+      <button id="settingsBtn" class="pill">設定</button>
+    </header>
+
+    <section id="configPanel" class="card hidden">
+      <h2>Supabase設定</h2>
+      <p class="small">最初だけ入力してください。ブラウザに保存されます。</p>
+      <label>Supabase URL
+        <input id="supabaseUrl" placeholder="https://xxxxx.supabase.co" />
+      </label>
+      <label>Publishable key
+        <input id="supabaseKey" placeholder="sb_publishable_..." />
+      </label>
+      <button id="saveConfigBtn" class="primary">設定を保存</button>
+      <p id="configStatus" class="small"></p>
+    </section>
+
+    <main>
+      <section class="grid two">
+        <div class="saving-card">
+          <p>今月の節約額</p>
+          <strong id="monthlySavings">0円</strong>
+          <span>平均価格との差額で計算</span>
+        </div>
+        <div class="saving-card cream">
+          <p>登録商品</p>
+          <strong id="productCount">0件</strong>
+          <span>よく買う商品を記録</span>
+        </div>
+      </section>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="shopping">買い物リスト</button>
+        <button class="tab" data-tab="products">商品</button>
+        <button class="tab" data-tab="prices">価格登録</button>
+        <button class="tab" data-tab="compare">容量比較</button>
+      </nav>
+
+      <section id="shopping" class="tab-panel active">
+        <div class="card">
+          <h2>買い物リスト</h2>
+          <div class="form-row">
+            <input id="shoppingName" placeholder="例：牛乳" />
+            <input id="shoppingQty" placeholder="例：1本" />
+          </div>
+          <input id="shoppingMemo" placeholder="例：安ければ買う、詰め替え" />
+          <div class="button-row">
+            <button id="addShoppingBtn" class="primary">追加</button>
+            <button id="voiceBtn" class="accent">🎤 声で追加・検索</button>
+          </div>
+          <p id="voiceText" class="small"></p>
+        </div>
+        <div id="shoppingList" class="list"></div>
+      </section>
+
+      <section id="products" class="tab-panel">
+        <div class="card">
+          <h2>商品登録</h2>
+          <input id="productName" placeholder="商品名 例：アタックZERO" />
+          <div class="form-row">
+            <input id="productVolume" type="number" placeholder="容量 例：750" />
+            <select id="productUnit">
+              <option value="ml">ml</option>
+              <option value="L">L</option>
+              <option value="g">g</option>
+              <option value="kg">kg</option>
+              <option value="個">個</option>
+              <option value="枚">枚</option>
+              <option value="ロール">ロール</option>
+            </select>
+          </div>
+          <input id="productCategory" placeholder="カテゴリ 例：日用品" />
+          <button id="addProductBtn" class="primary">商品を追加</button>
+        </div>
+        <div id="productList" class="list"></div>
+      </section>
+
+      <section id="prices" class="tab-panel">
+        <div class="card">
+          <h2>価格登録</h2>
+          <select id="priceProduct"></select>
+          <input id="storeName" placeholder="店舗名 例：Aスーパー" />
+          <input id="priceValue" type="number" placeholder="価格 例：350" />
+          <button id="addPriceBtn" class="primary">価格を登録</button>
+        </div>
+        <div id="priceList" class="list"></div>
+      </section>
+
+      <section id="compare" class="tab-panel">
+        <div class="card">
+          <h2>容量単価比較</h2>
+          <div class="compare-grid">
+            <input id="aVolume" type="number" placeholder="A 容量" />
+            <input id="aPrice" type="number" placeholder="A 価格" />
+            <input id="bVolume" type="number" placeholder="B 容量" />
+            <input id="bPrice" type="number" placeholder="B 価格" />
+          </div>
+          <button id="compareBtn" class="primary">比較する</button>
+          <div id="compareResult" class="result"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
