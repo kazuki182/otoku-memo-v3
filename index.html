@@ -164,7 +164,10 @@
             <button id="clearProductAiBtn" class="ghost" type="button">貼り付け欄クリア</button>
           </div>
           <textarea id="productAiResult" class="ai-textarea" placeholder='ChatGPTの結果をここに貼り付け&#10;例：{"product_name":"牛乳","category":"食品","volume":1000,"unit":"ml"}'></textarea>
-          <button id="applyProductAiBtn" class="primary wide-btn" type="button">AI結果を製品登録欄に反映</button>
+          <div class="ai-action-split">
+            <button id="applyProductAiBtn" class="ghost wide-btn" type="button">入力欄に反映</button>
+            <button id="registerProductAiBtn" class="primary wide-btn" type="button">反映して製品登録</button>
+          </div>
           <p id="productAiStatus" class="small"></p>
         </div>
         <div class="card">

@@ -157,12 +157,19 @@ function showLoginGate(){
   const gate = $('loginGate');
   const shell = document.querySelector('.app-shell');
   if(!gate || !shell) return;
-  if(currentAccount && isApprovedAccount(currentAccount)){
+  const loggedIn = Boolean(currentAccount && isApprovedAccount(currentAccount));
+  document.body.classList.toggle('auth-unlocked', loggedIn);
+  document.body.classList.toggle('auth-locked', !loggedIn);
+  if(loggedIn){
     gate.classList.add('hidden');
+    gate.setAttribute('aria-hidden','true');
     shell.classList.remove('locked');
+    shell.removeAttribute('aria-hidden');
   }else{
     gate.classList.remove('hidden');
+    gate.removeAttribute('aria-hidden');
     shell.classList.add('locked');
+    shell.setAttribute('aria-hidden','true');
   }
   updateAccountUi();
 }
@@ -188,6 +195,7 @@ async function login(){
   $('loginStatus').textContent = '';
   showLoginGate();
   render();
+  setTimeout(() => window.scrollTo({top:0, behavior:'smooth'}), 50);
 }
 function logout(){
   currentAccount = '';
@@ -605,19 +613,81 @@ function renderPriceChart(productId){
   </details>`;
 }
 
+
+
+function buyTimingHtml(st){
+  if(!st || st.count < 2){
+    return '<div class="timing-chip neutral">買い時判定：価格履歴を2件以上登録すると表示</div>';
+  }
+  const latest = Number(st.latest.price) || 0;
+  const avg = Number(st.avg) || 0;
+  const min = Number(st.min.price) || 0;
+  const diffAvg = avg - latest;
+  if(latest <= min){
+    return `<div class="timing-chip good">買い時：過去最安値です</div>`;
+  }
+  if(avg && latest <= avg * 0.95){
+    return `<div class="timing-chip good">買い時：平均より${yen(diffAvg)}安い</div>`;
+  }
+  if(avg && latest >= avg * 1.10){
+    return `<div class="timing-chip caution">高め：平均より${yen(latest - avg)}高い</div>`;
+  }
+  return '<div class="timing-chip normal">いつも通り：平均価格に近いです</div>';
+}
+
+function quickPriceCandidates(st){
+  const base = [];
+  if(st){
+    base.push(Number(st.latest.price) || 0, Number(st.min.price) || 0, Math.round(Number(st.avg) || 0));
+  }
+  base.push(98,128,158,178,198,218,248,298,348,398,498,598,698,798,980,1280);
+  return [...new Set(base.filter(v => v > 0))].slice(0, 6);
+}
+
+function quickPriceButtons(productId, st){
+  const buttons = quickPriceCandidates(st).map(v => `<button class="quick-price-btn" type="button" onclick="quickRegisterPrice('${productId}', ${v})">${v}円</button>`).join('');
+  return `<div class="quick-price-box"><div class="quick-price-title">価格だけ登録</div><div class="quick-price-row">${buttons}<button class="quick-price-btn manual" type="button" onclick="openQuickPrice('${productId}')">入力</button></div><p class="small">前回店舗を使って、タップだけで価格登録できます。</p></div>`;
+}
+
+async function quickRegisterPrice(productId, price){
+  const product = products.find(p => p.id === productId);
+  if(!product){ alert('商品が見つかりません。'); return; }
+  const storeName = localStorage.getItem(`lastStoreFor_${productId}`) || localStorage.getItem('lastStoreName') || '店舗未入力';
+  const item = { product_id: productId, store_name: storeName, price: Number(price), member_name: getMemberName() };
+  if(storeName && storeName !== '店舗未入力'){
+    localStorage.setItem('lastStoreName', storeName);
+    localStorage.setItem(`lastStoreFor_${productId}`, storeName);
+  }
+  if(mode === 'supabase' && supabaseClient){
+    const res = await supabaseClient.from('price_records').insert({...item, created_at: new Date().toISOString()}).select().single();
+    if(res.error){ fallbackToLocal(`価格登録に失敗しました：${res.error.message}`); return; }
+  } else {
+    prices.unshift({ id: uid(), ...item, created_at: new Date().toISOString() });
+    saveLocalAll();
+  }
+  setStatus(`${product.product_name}を${yen(price)}で登録しました。店舗：${storeName}`,'ok');
+  await loadAll();
+}
+window.quickRegisterPrice = quickRegisterPrice;
+
 function renderProducts(){
   $('productList').innerHTML = sortedProducts().map(p => {
     const st = productPriceStats(p.id);
     if(!st){
       return `<div class="product-card">
-        <div class="product-head"><div><h3>${escapeHtml(p.product_name)}</h3><p class="small">${escapeHtml(p.category || '未分類')} / ${p.volume || '-'}${escapeHtml(p.unit || '')}</p></div><span class="badge pale">価格未登録</span></div>
-        <div class="empty-price">価格が未登録です。下のボタンから価格だけ入力できます。</div>
-        <div class="card-actions">
+        <div class="product-head"><div><h3>${isProductPinned(p) ? '📌 ' : ''}${escapeHtml(p.product_name)}</h3><p class="small">${escapeHtml(p.category || '未分類')} / ${p.volume || '-'}${escapeHtml(p.unit || '')}</p></div><span class="badge pale">価格未登録</span></div>
+        <div class="empty-price">価格が未登録です。まず価格を1件登録すると、比較と買い時判定が使えます。</div>
+        <div class="card-actions two-actions">
           <button class="primary wide-btn" type="button" onclick="openQuickPrice('${p.id}')">価格を追加</button>
           <button class="ghost wide-btn" type="button" onclick="toggleProductPin('${p.id}')">${isProductPinned(p) ? '固定解除' : '上に固定'}</button>
-          <button class="ghost wide-btn" type="button" onclick="editProduct('${p.id}')">編集</button>
-          <button class="danger wide-btn" type="button" onclick="deleteProduct('${p.id}')">削除</button>
         </div>
+        <details class="product-more">
+          <summary>編集・削除</summary>
+          <div class="card-actions two-actions">
+            <button class="ghost wide-btn" type="button" onclick="editProduct('${p.id}')">編集</button>
+            <button class="danger wide-btn" type="button" onclick="deleteProduct('${p.id}')">削除</button>
+          </div>
+        </details>
       </div>`;
     }
     const saved = Math.max(0, st.avg - st.latest.price);
@@ -630,20 +700,26 @@ function renderProducts(){
         <div><span>最新価格</span><strong>${yen(st.latest.price)}</strong><small>${escapeHtml(st.latest.store_name || '店舗未入力')}</small></div>
         <div><span>最安値</span><strong>${yen(st.min.price)}</strong><small>${escapeHtml(st.min.store_name || '店舗未入力')}</small></div>
       </div>
-      <div class="price-sub">
-        <span>平均 ${yen(st.avg)}</span>
-        <span>最高 ${yen(st.max.price)}</span>
-        <span>${unitPriceText(p, st.latest.price) || '単価未設定'}</span>
-      </div>
-      <div class="stores-line">登録店舗：${escapeHtml(st.stores.join('、') || '未入力')}</div>
-      <div class="saving-line">${saved > 0 ? `平均より ${yen(saved)} お得` : '平均価格以上です。次回の比較に使えます。'}</div>
-      ${renderPriceChart(p.id)}
-      ${renderStoreHistory(p)}
-      <div class="card-actions">
-        <button class="primary wide-btn" type="button" onclick="openQuickPrice('${p.id}')">価格を追加</button>
-        <button class="ghost wide-btn" type="button" onclick="editProduct('${p.id}')">編集</button>
-        <button class="danger wide-btn" type="button" onclick="deleteProduct('${p.id}')">削除</button>
-      </div>
+      ${buyTimingHtml(st)}
+      ${quickPriceButtons(p.id, st)}
+      <details class="product-more">
+        <summary>詳細を見る・編集する</summary>
+        <div class="price-sub">
+          <span>平均 ${yen(st.avg)}</span>
+          <span>最高 ${yen(st.max.price)}</span>
+          <span>${unitPriceText(p, st.latest.price) || '単価未設定'}</span>
+        </div>
+        <div class="stores-line">登録店舗：${escapeHtml(st.stores.join('、') || '未入力')}</div>
+        <div class="saving-line">${saved > 0 ? `平均より ${yen(saved)} お得` : '平均価格以上です。次回の比較に使えます。'}</div>
+        ${renderPriceChart(p.id)}
+        ${renderStoreHistory(p)}
+        <div class="card-actions">
+          <button class="primary wide-btn" type="button" onclick="openQuickPrice('${p.id}')">価格を追加</button>
+          <button class="ghost wide-btn" type="button" onclick="toggleProductPin('${p.id}')">${isProductPinned(p) ? '固定解除' : '上に固定'}</button>
+          <button class="ghost wide-btn" type="button" onclick="editProduct('${p.id}')">編集</button>
+          <button class="danger wide-btn" type="button" onclick="deleteProduct('${p.id}')">削除</button>
+        </div>
+      </details>
     </div>`;
   }).join('') || '<div class="card"><p class="small">まだ製品がありません。まず「製品登録」から、普段買う商品を追加してください。</p></div>';
 }
@@ -1113,16 +1189,30 @@ async function copyText(text, statusId){
 }
 
 function extractJsonObject(raw){
-  const text = String(raw || '').trim();
+  let text = String(raw || '').trim();
   if(!text) return null;
-  try { return JSON.parse(text); } catch {}
+  text = text.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try {
+    const parsed = JSON.parse(text);
+    if(Array.isArray(parsed)) return parsed[0] || null;
+    return parsed;
+  } catch {}
+  const arrayMatch = text.match(/\[[\s\S]*\]/);
+  if(arrayMatch){
+    try{
+      const parsed = JSON.parse(arrayMatch[0]);
+      if(Array.isArray(parsed)) return parsed[0] || null;
+    }catch{}
+  }
   const match = text.match(/\{[\s\S]*\}/);
-  if(match){ try { return JSON.parse(match[0]); } catch {} }
+  if(match){
+    try { return JSON.parse(match[0]); } catch {}
+  }
   const obj = {};
   text.split(/\n|,/).forEach(line => {
-    const m = line.match(/^\s*([^:：]+)[:：]\s*(.+?)\s*$/);
+    const m = line.match(/^\s*[-・*]?\s*([^:：=]+)[:：=]\s*(.+?)\s*$/);
     if(!m) return;
-    const key = m[1].trim();
+    const key = m[1].trim().replace(/[「」\[\]]/g,'');
     const val = m[2].trim().replace(/^"|"$/g,'');
     obj[key] = val;
   });
@@ -1136,27 +1226,46 @@ function pick(obj, keys){
   return '';
 }
 
+function splitVolumeUnit(value){
+  const text = String(value || '').trim();
+  if(!text) return {volume:'', unit:''};
+  const m = text.match(/([0-9０-９]+(?:[\.．][0-9０-９]+)?)\s*(ml|ｍｌ|ミリリットル|l|L|Ｌ|リットル|g|ｇ|グラム|kg|ｋｇ|キログラム|個|枚|本|ロール|パック|箱|袋)/i);
+  if(!m) return {volume:text.replace(/[^0-9.０-９．]/g,'').replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace('．','.'), unit:''};
+  const volume = m[1].replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace('．','.');
+  let unit = m[2];
+  if(/ml|ｍｌ|ミリ/i.test(unit)) unit = 'ml';
+  else if(/l|Ｌ|リットル/i.test(unit)) unit = 'L';
+  else if(/^g$|ｇ|グラム/i.test(unit)) unit = 'g';
+  else if(/kg|ｋｇ|キロ/i.test(unit)) unit = 'kg';
+  else if(unit === '箱' || unit === '袋') unit = '個';
+  return {volume, unit};
+}
+
 function normalizeAiData(obj){
   if(!obj) return null;
+  const rawVolume = pick(obj, ['volume','capacity','amount','size','容量','内容量','規格','サイズ']);
+  const rawUnit = pick(obj, ['unit','単位']);
+  const vu = splitVolumeUnit(rawVolume);
   return {
-    product_name: pick(obj, ['product_name','商品名','製品名','name']),
-    maker: pick(obj, ['maker','メーカー','manufacturer']),
-    jan_code: pick(obj, ['jan_code','JAN','JANコード','barcode']),
-    category: pick(obj, ['category','ジャンル','カテゴリ']),
-    volume: pick(obj, ['volume','容量','内容量']),
-    unit: pick(obj, ['unit','単位']),
-    store_name: pick(obj, ['store_name','店舗名','店舗','store']),
-    price: pick(obj, ['price','価格','税込価格','金額']),
-    tax_type: pick(obj, ['tax_type','税区分','税込税抜']),
-    price_type: pick(obj, ['price_type','価格種別','種別']),
-    confidence: pick(obj, ['confidence','確信度']),
-    notes: pick(obj, ['notes','メモ','注意点'])
+    product_name: pick(obj, ['product_name','productName','item_name','itemName','商品名','製品名','品名','name','名称']),
+    maker: pick(obj, ['maker','brand','メーカー','manufacturer','ブランド']),
+    jan_code: pick(obj, ['jan_code','jan','JAN','JANコード','barcode','バーコード']),
+    category: pick(obj, ['category','genre','ジャンル','カテゴリ','分類']),
+    volume: vu.volume || rawVolume,
+    unit: rawUnit || vu.unit,
+    store_name: pick(obj, ['store_name','storeName','店舗名','店舗','store','店名']),
+    price: pick(obj, ['price','価格','税込価格','金額','sale_price','selling_price']),
+    tax_type: pick(obj, ['tax_type','税区分','税込税抜','税']),
+    price_type: pick(obj, ['price_type','価格種別','種別','セール種別']),
+    confidence: pick(obj, ['confidence','確信度','信頼度']),
+    notes: pick(obj, ['notes','note','メモ','注意点','補足'])
   };
 }
 
 function setUnitIfExists(unit){
   if(!unit) return;
   const sel = $('productUnit');
+  if(!sel) return;
   const options = Array.from(sel.options).map(o => o.value);
   if(options.includes(unit)) sel.value = unit;
   else if(unit === 'リットル') sel.value = 'L';
@@ -1165,18 +1274,33 @@ function setUnitIfExists(unit){
   else if(unit === 'キログラム') sel.value = 'kg';
 }
 
-function applyProductAiResult(){
+async function applyProductAiResult(autoRegister=false){
   const raw = $('productAiResult')?.value || '';
   const data = normalizeAiData(extractJsonObject(raw));
-  if(!data){ alert('AI結果を読み取れませんでした。JSON形式の結果を貼り付けてください。'); return; }
+  if(!data){ alert('AI結果を読み取れませんでした。JSON形式、または「商品名：牛乳」のような形式で貼り付けてください。'); return; }
   if(data.product_name) $('productName').value = data.product_name;
   if(data.volume) $('productVolume').value = String(data.volume).replace(/[^0-9.]/g,'');
   if(data.unit) setUnitIfExists(data.unit);
   if(data.category) $('productCategory').value = data.category;
-  const msg = `反映しました${data.confidence ? `（確信度：${data.confidence}）` : ''}。内容を確認して「製品を追加」を押してください。${data.notes ? ' メモ：' + data.notes : ''}`;
+  const msg = `反映しました${data.confidence ? `（確信度：${data.confidence}）` : ''}。${autoRegister ? '製品登録まで実行します。' : '内容を確認して「製品を追加」を押してください。'}${data.notes ? ' メモ：' + data.notes : ''}`;
   $('productAiStatus').textContent = msg;
   $('productAiStatus').className = 'small copy-ok';
-  setStatus('商品写真AIの結果を製品登録欄に反映しました。内容を確認してください。','ok');
+  document.querySelector('[data-tab="products"]')?.click();
+  setTimeout(() => $('productName')?.scrollIntoView({behavior:'smooth', block:'center'}), 80);
+  if(autoRegister){
+    if(!($('productName')?.value || '').trim()){
+      alert('商品名が読み取れませんでした。商品名だけ入力してから登録してください。');
+      return;
+    }
+    await addProduct();
+    setStatus('AI結果から製品を登録しました。続けて価格登録できます。','ok');
+  }else{
+    setStatus('商品写真AIの結果を製品登録欄に反映しました。内容を確認してください。','ok');
+  }
+}
+
+async function registerProductAiResult(){
+  await applyProductAiResult(true);
 }
 
 function applyPriceAiResult(){
@@ -1232,7 +1356,8 @@ function setupEvents(){
   $('addProductBtn').addEventListener('click', addProduct);
   $('productName').addEventListener('input', autoAssistProductFields);
   $('copyProductPromptBtn').addEventListener('click', () => copyText(PRODUCT_PHOTO_PROMPT, 'productAiStatus'));
-  $('applyProductAiBtn').addEventListener('click', applyProductAiResult);
+  $('applyProductAiBtn').addEventListener('click', () => applyProductAiResult(false));
+  $('registerProductAiBtn')?.addEventListener('click', registerProductAiResult);
   $('clearProductAiBtn').addEventListener('click', () => { $('productAiResult').value=''; $('productAiStatus').textContent=''; });
   $('cancelProductEditBtn').addEventListener('click', () => { resetProductForm(); setStatus('製品編集をキャンセルしました。','ok'); });
   $('addShoppingBtn').addEventListener('click', () => addShoppingByProduct($('shoppingProduct').value, $('shoppingQty').value));
