@@ -4,6 +4,7 @@ let products = [];
 let prices = [];
 let shoppingItems = [];
 let approvedAccounts = ['kazuki'];
+let supportConfig = { paypay_id: '', paypay_url: '', message: '無料で便利に使えるアプリを目指しています。応援いただけると開発継続の励みになります。' };
 let currentAccount = localStorage.getItem('currentAccount') || '';
 const FIXED_LOGIN_PASSWORD = '12345';
 
@@ -40,6 +41,102 @@ function readApprovedLocal(){
 function writeApprovedLocal(list){
   writeLocal(approvedStorageKey(), [...new Set(['kazuki', ...list.map(v => String(v).trim()).filter(Boolean)])]);
 }
+
+function defaultSupportConfig(){
+  return { paypay_id: '', paypay_url: '', message: '無料で便利に使えるアプリを目指しています。応援いただけると開発継続の励みになります。' };
+}
+function readSupportLocal(){
+  try { return {...defaultSupportConfig(), ...(JSON.parse(localStorage.getItem('otokuSupportConfig') || '{}') || {})}; }
+  catch { return defaultSupportConfig(); }
+}
+function writeSupportLocal(cfg){
+  localStorage.setItem('otokuSupportConfig', JSON.stringify({...defaultSupportConfig(), ...cfg}));
+}
+async function loadSupportConfig(){
+  supportConfig = readSupportLocal();
+  if(mode === 'supabase' && supabaseClient){
+    const res = await supabaseClient.from('support_settings').select('*').eq('id', 'default').maybeSingle();
+    if(!res.error && res.data){
+      supportConfig = {...defaultSupportConfig(), ...res.data};
+      writeSupportLocal(supportConfig);
+    }
+  }
+  renderSupport();
+}
+async function saveSupportConfig(){
+  if(currentAccount !== 'kazuki'){
+    alert('応援ページの編集は管理者 kazuki のみ可能です。');
+    return;
+  }
+  const cfg = {
+    id: 'default',
+    paypay_id: ($('supportPaypayId')?.value || '').trim(),
+    paypay_url: ($('supportPaypayUrl')?.value || '').trim(),
+    message: ($('supportMessage')?.value || '').trim() || defaultSupportConfig().message,
+    updated_by: currentAccount,
+    updated_at: new Date().toISOString()
+  };
+  supportConfig = {...defaultSupportConfig(), ...cfg};
+  writeSupportLocal(supportConfig);
+  if(mode === 'supabase' && supabaseClient){
+    const res = await supabaseClient.from('support_settings').upsert(cfg, {onConflict:'id'});
+    if(res.error){
+      if($('supportStatus')) $('supportStatus').textContent = `クラウド保存に失敗しました：${res.error.message}。この端末には保存しました。`;
+      setStatus('応援ページ設定のクラウド保存に失敗しました。Supabaseでschema.sqlを再実行してください。','error');
+    } else {
+      if($('supportStatus')) $('supportStatus').textContent = '応援ページを保存しました。';
+      setStatus('応援ページを保存しました。','ok');
+    }
+  } else {
+    if($('supportStatus')) $('supportStatus').textContent = 'この端末に保存しました。';
+    setStatus('応援ページをこの端末に保存しました。','ok');
+  }
+  renderSupport();
+}
+function resetSupportConfig(){
+  if($('supportPaypayId')) $('supportPaypayId').value = '';
+  if($('supportPaypayUrl')) $('supportPaypayUrl').value = '';
+  if($('supportMessage')) $('supportMessage').value = defaultSupportConfig().message;
+}
+function renderSupport(){
+  const cfg = {...defaultSupportConfig(), ...supportConfig};
+  const box = $('supportDisplay');
+  if(box){
+    const hasId = !!cfg.paypay_id;
+    const hasUrl = !!cfg.paypay_url;
+    box.innerHTML = `
+      <div class="support-message">${escapeHtml(cfg.message).replace(/\n/g,'<br>')}</div>
+      <div class="support-paypay-card">
+        <div>
+          <p class="eyebrow mini">PayPayで応援</p>
+          <h3>${hasId ? escapeHtml(cfg.paypay_id) : '送金先は準備中です'}</h3>
+          <p class="small">PayPay公式API連携ではありません。無料運用のため、送金先表示・コピー・外部リンクのみの簡易方式です。</p>
+        </div>
+        <div class="button-row">
+          <button class="primary" type="button" onclick="copySupportPaypay()" ${hasId ? '' : 'disabled'}>送金先をコピー</button>
+          <button class="ghost" type="button" onclick="openSupportPaypay()" ${hasUrl ? '' : 'disabled'}>PayPay関連リンクを開く</button>
+        </div>
+      </div>
+      <div class="support-note small">投げ銭は完全任意です。アプリ機能は無料で使えます。</div>`;
+  }
+  if($('supportAdminBox')) $('supportAdminBox').classList.toggle('hidden', currentAccount !== 'kazuki');
+  if($('supportPaypayId')) $('supportPaypayId').value = cfg.paypay_id || '';
+  if($('supportPaypayUrl')) $('supportPaypayUrl').value = cfg.paypay_url || '';
+  if($('supportMessage')) $('supportMessage').value = cfg.message || '';
+}
+async function copySupportPaypay(){
+  const v = (supportConfig.paypay_id || '').trim();
+  if(!v){ alert('送金先が未設定です。'); return; }
+  try{ await navigator.clipboard.writeText(v); alert('送金先をコピーしました。'); }
+  catch{ prompt('送金先をコピーしてください。', v); }
+}
+function openSupportPaypay(){
+  const url = (supportConfig.paypay_url || '').trim();
+  if(!url){ alert('リンクが未設定です。'); return; }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+window.copySupportPaypay = copySupportPaypay;
+window.openSupportPaypay = openSupportPaypay;
 async function loadApprovedAccounts(){
   approvedAccounts = readApprovedLocal();
   if(mode === 'supabase' && supabaseClient){
@@ -312,6 +409,7 @@ function initSupabase(){
 
 async function loadAll(){
   await loadApprovedAccounts();
+  await loadSupportConfig();
   showLoginGate();
   if(mode === 'supabase' && supabaseClient){
     const p = await supabaseClient.from('products').select('*').order('created_at',{ascending:false});
@@ -364,6 +462,7 @@ function render(){
   renderPrices();
   renderShopping();
   renderSavings();
+  renderSupport();
 }
 
 function sortPriceRows(rows){
@@ -1114,6 +1213,8 @@ function setupEvents(){
   }));
 
   $('settingsBtn').addEventListener('click', () => $('configPanel').classList.toggle('hidden'));
+  $('saveSupportBtn')?.addEventListener('click', saveSupportConfig);
+  $('resetSupportBtn')?.addEventListener('click', resetSupportConfig);
   $('saveConfigBtn').addEventListener('click', async () => {
     localStorage.setItem('supabaseUrl', $('supabaseUrl').value.trim());
     localStorage.setItem('supabaseKey', $('supabaseKey').value.trim());

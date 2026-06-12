@@ -30,6 +30,20 @@ insert into approved_accounts (account_name, created_by)
 values ('kazuki', 'system')
 on conflict (account_name) do nothing;
 
+
+create table if not exists support_settings (
+  id text primary key default 'default',
+  paypay_id text,
+  paypay_url text,
+  message text,
+  updated_by text,
+  updated_at timestamptz default now()
+);
+
+insert into support_settings (id, message, updated_by)
+values ('default', '無料で便利に使えるアプリを目指しています。応援いただけると開発継続の励みになります。', 'system')
+on conflict (id) do nothing;
+
 create table if not exists shopping_items (
   id uuid primary key default gen_random_uuid(),
   product_id uuid references products(id) on delete set null,
@@ -56,13 +70,16 @@ alter table products enable row level security;
 alter table price_records enable row level security;
 alter table shopping_items enable row level security;
 alter table approved_accounts enable row level security;
+alter table support_settings enable row level security;
 
 drop policy if exists "public products" on products;
 drop policy if exists "public price records" on price_records;
 drop policy if exists "public shopping items" on shopping_items;
 drop policy if exists "public approved accounts" on approved_accounts;
+drop policy if exists "public support settings" on support_settings;
 
 create policy "public products" on products for all using (true) with check (true);
 create policy "public price records" on price_records for all using (true) with check (true);
 create policy "public shopping items" on shopping_items for all using (true) with check (true);
 create policy "public approved accounts" on approved_accounts for all using (true) with check (true);
+create policy "public support settings" on support_settings for all using (true) with check (true);

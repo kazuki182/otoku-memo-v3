@@ -145,6 +145,7 @@
         <button class="tab" data-tab="prices" type="button">価格登録</button>
         <button class="tab" data-tab="compare" type="button">容量比較</button>
         <button class="tab sub-tab" data-tab="shopping" type="button">買い物リスト</button>
+        <button class="tab support-tab" data-tab="support" type="button">応援</button>
       </nav>
 
       <section id="products" class="tab-panel active">
@@ -283,6 +284,39 @@
           </div>
           <button id="compareBtn" class="primary" type="button">容量単価を比較する</button>
           <div id="compareResult" class="result"></div>
+        </div>
+      </section>
+
+      <section id="support" class="tab-panel">
+        <div class="card support-card">
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow mini">無料で使える範囲</p>
+              <h2>応援・投げ銭</h2>
+            </div>
+            <span class="sub-label">任意</span>
+          </div>
+          <p class="small">このアプリは課金制ではなく無料運用です。気に入った方だけ、任意で応援できるページです。</p>
+          <div id="supportDisplay" class="support-display"></div>
+
+          <div id="supportAdminBox" class="support-admin hidden">
+            <h3>応援ページ設定</h3>
+            <p class="small">管理者 kazuki でログイン中のみ編集できます。PayPay API連携ではなく、無料で使える「表示・コピー」方式です。</p>
+            <label>PayPay ID または送金先メモ
+              <input id="supportPaypayId" placeholder="例：PayPay ID、表示したい送金先名など" />
+            </label>
+            <label>PayPay関連URL（任意）
+              <input id="supportPaypayUrl" placeholder="https:// から始まるURLがある場合だけ" />
+            </label>
+            <label>応援メッセージ
+              <textarea id="supportMessage" class="ai-textarea" placeholder="例：無料で便利に使えるアプリを目指しています。応援いただけると開発継続の励みになります。"></textarea>
+            </label>
+            <div class="button-row">
+              <button id="saveSupportBtn" class="primary" type="button">応援ページを保存</button>
+              <button id="resetSupportBtn" class="ghost" type="button">初期文に戻す</button>
+            </div>
+            <p id="supportStatus" class="small"></p>
+          </div>
         </div>
       </section>
     </main>
