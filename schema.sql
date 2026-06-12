@@ -19,12 +19,15 @@ create table if not exists price_records (
 
 create table if not exists shopping_items (
   id uuid primary key default gen_random_uuid(),
+  product_id uuid references products(id) on delete set null,
   item_name text not null,
   quantity text,
   memo text,
   purchased boolean default false,
   created_at timestamptz default now()
 );
+
+alter table shopping_items add column if not exists product_id uuid references products(id) on delete set null;
 
 alter table products enable row level security;
 alter table price_records enable row level security;

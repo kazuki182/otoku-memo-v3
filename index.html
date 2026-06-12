@@ -13,21 +13,24 @@
       <div>
         <p class="eyebrow">買い物お助けアプリ</p>
         <h1>おとくメモ</h1>
-        <p class="lead">いつもの買い物を、声と価格メモでかしこく。</p>
+        <p class="lead">普段買う商品の詳細・価格・店舗比較を見やすく管理。</p>
       </div>
-      <button id="settingsBtn" class="pill">設定</button>
+      <button id="settingsBtn" class="pill" type="button">設定</button>
     </header>
 
     <section id="configPanel" class="card hidden">
       <h2>Supabase設定</h2>
-      <p class="small">最初だけ入力してください。ブラウザに保存されます。</p>
+      <p class="small">未設定でも、このブラウザ内に保存して使えます。Supabaseを設定するとクラウド保存になります。</p>
       <label>Supabase URL
         <input id="supabaseUrl" placeholder="https://xxxxx.supabase.co" />
       </label>
       <label>Publishable key
         <input id="supabaseKey" placeholder="sb_publishable_..." />
       </label>
-      <button id="saveConfigBtn" class="primary">設定を保存</button>
+      <div class="button-row">
+        <button id="saveConfigBtn" class="primary" type="button">設定を保存</button>
+        <button id="clearConfigBtn" class="ghost" type="button">設定を消す</button>
+      </div>
       <p id="configStatus" class="small"></p>
     </section>
 
@@ -41,38 +44,61 @@
         <div class="saving-card cream">
           <p>登録商品</p>
           <strong id="productCount">0件</strong>
-          <span>よく買う商品を記録</span>
+          <span>製品詳細と価格を記録</span>
         </div>
+      </section>
+
+      <p id="appStatus" class="notice small">読み込み中...</p>
+
+      <section class="card quick-compare-card" id="homeQuickCompare">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow mini">買い物中すぐ使える</p>
+            <h2>容量かんたん比較</h2>
+          </div>
+          <span class="sub-label">HOME表示</span>
+        </div>
+        <p class="small">例：750ml 350円 と 2000ml 780円。容量と価格だけ入れると、どちらがお得かすぐ表示します。</p>
+        <div class="quick-compare-grid">
+          <div class="mini-card">
+            <strong>A</strong>
+            <input id="qAVolume" type="number" inputmode="decimal" placeholder="容量 例：750" />
+            <input id="qAPrice" type="number" inputmode="decimal" placeholder="価格 例：350" />
+          </div>
+          <div class="mini-card">
+            <strong>B</strong>
+            <input id="qBVolume" type="number" inputmode="decimal" placeholder="容量 例：2000" />
+            <input id="qBPrice" type="number" inputmode="decimal" placeholder="価格 例：780" />
+          </div>
+        </div>
+        <label>比較単位
+          <select id="qUnit">
+            <option value="ml">ml</option>
+            <option value="g">g</option>
+            <option value="個">個</option>
+            <option value="枚">枚</option>
+            <option value="ロール">ロール</option>
+            <option value="本">本</option>
+          </select>
+        </label>
+        <div class="button-row">
+          <button id="quickCompareBtn" class="primary" type="button">すぐ比較</button>
+          <button id="quickCompareClearBtn" class="ghost" type="button">クリア</button>
+        </div>
+        <div id="quickCompareResult" class="result hidden"></div>
       </section>
 
       <nav class="tabs">
-        <button class="tab active" data-tab="shopping">買い物リスト</button>
-        <button class="tab" data-tab="products">商品</button>
-        <button class="tab" data-tab="prices">価格登録</button>
-        <button class="tab" data-tab="compare">容量比較</button>
+        <button class="tab active" data-tab="products" type="button">商品・価格</button>
+        <button class="tab" data-tab="prices" type="button">価格登録</button>
+        <button class="tab" data-tab="compare" type="button">容量比較</button>
+        <button class="tab sub-tab" data-tab="shopping" type="button">買い物リスト</button>
       </nav>
 
-      <section id="shopping" class="tab-panel active">
+      <section id="products" class="tab-panel active">
         <div class="card">
-          <h2>買い物リスト</h2>
-          <div class="form-row">
-            <input id="shoppingName" placeholder="例：牛乳" />
-            <input id="shoppingQty" placeholder="例：1本" />
-          </div>
-          <input id="shoppingMemo" placeholder="例：安ければ買う、詰め替え" />
-          <div class="button-row">
-            <button id="addShoppingBtn" class="primary">追加</button>
-            <button id="voiceBtn" class="accent">🎤 声で追加・検索</button>
-          </div>
-          <p id="voiceText" class="small"></p>
-        </div>
-        <div id="shoppingList" class="list"></div>
-      </section>
-
-      <section id="products" class="tab-panel">
-        <div class="card">
-          <h2>商品登録</h2>
-          <input id="productName" placeholder="商品名 例：アタックZERO" />
+          <h2>製品登録</h2>
+          <input id="productName" placeholder="製品名 例：アタックZERO 詰め替え" />
           <div class="form-row">
             <input id="productVolume" type="number" placeholder="容量 例：750" />
             <select id="productUnit">
@@ -85,33 +111,68 @@
               <option value="ロール">ロール</option>
             </select>
           </div>
-          <input id="productCategory" placeholder="カテゴリ 例：日用品" />
-          <button id="addProductBtn" class="primary">商品を追加</button>
+          <input id="productCategory" placeholder="ジャンル 例：日用品・食品" />
+          <button id="addProductBtn" class="primary" type="button">製品を追加</button>
         </div>
-        <div id="productList" class="list"></div>
+        <p class="small">登録した製品ごとに、最新価格・最安値・平均価格・店舗を表示します。</p>
+        <div id="productList" class="product-grid"></div>
+      </section>
+
+      <section id="shopping" class="tab-panel">
+        <div class="card compact-card">
+          <h2>買い物リスト <span class="sub-label">サブ機能</span></h2>
+          <p class="small">「商品・価格」で登録した製品から選んで、買い物リストに入れます。</p>
+          <label>登録済み商品
+            <select id="shoppingProduct"></select>
+          </label>
+          <label class="select-label">数量
+            <select id="shoppingQty">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </label>
+          <div class="button-row">
+            <button id="addShoppingBtn" class="primary" type="button">選んだ商品をリストに追加</button>
+            <button id="voiceBtn" class="accent" type="button">🎤 声で追加</button>
+          </div>
+          <p id="voiceText" class="small"></p>
+        </div>
+        <div id="shoppingList" class="list"></div>
       </section>
 
       <section id="prices" class="tab-panel">
         <div class="card">
-          <h2>価格登録</h2>
+          <h2>価格登録・店舗比較</h2>
+          <p class="small">商品カードの「価格を追加」から来ると、商品と前回店舗が自動で入ります。価格だけ入力して登録できます。</p>
           <select id="priceProduct"></select>
-          <input id="storeName" placeholder="店舗名 例：Aスーパー" />
+          <input id="storeName" list="storeSuggestions" placeholder="店舗名 例：ウエルシア" />
+          <datalist id="storeSuggestions"></datalist>
+          <div id="storeChips" class="chip-row"></div>
           <input id="priceValue" type="number" placeholder="価格 例：350" />
-          <button id="addPriceBtn" class="primary">価格を登録</button>
+          <button id="addPriceBtn" class="primary" type="button">価格を登録</button>
+          <p class="small">同じ製品に複数店舗の価格を入れると、商品・価格タブで比較できます。</p>
         </div>
         <div id="priceList" class="list"></div>
       </section>
 
       <section id="compare" class="tab-panel">
         <div class="card">
-          <h2>容量単価比較</h2>
+          <h2>容量単価比較 <span class="sub-label">詳細</span></h2>
           <div class="compare-grid">
             <input id="aVolume" type="number" placeholder="A 容量" />
             <input id="aPrice" type="number" placeholder="A 価格" />
             <input id="bVolume" type="number" placeholder="B 容量" />
             <input id="bPrice" type="number" placeholder="B 価格" />
           </div>
-          <button id="compareBtn" class="primary">比較する</button>
+          <button id="compareBtn" class="primary" type="button">容量単価を比較する</button>
           <div id="compareResult" class="result"></div>
         </div>
       </section>
