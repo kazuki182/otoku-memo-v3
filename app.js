@@ -1188,40 +1188,86 @@ async function copyText(text, statusId){
   }
 }
 
+function normalizePasteText(raw){
+  return String(raw || '')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\u00a0/g, ' ')
+    .replace(/，/g, ',')
+    .replace(/：/g, ':')
+    .trim();
+}
+
+function cleanAiKey(key){
+  return String(key || '')
+    .trim()
+    .replace(/["'“”‘’`「」『』\[\]{}]/g,'')
+    .replace(/\s/g,'')
+    .toLowerCase();
+}
+
+function cleanAiValue(val){
+  return String(val || '')
+    .trim()
+    .replace(/^["'“”‘’`「」『』]+|["'“”‘’`」』]+$/g,'')
+    .replace(/,$/,'')
+    .trim();
+}
+
 function extractJsonObject(raw){
-  let text = String(raw || '').trim();
+  let text = normalizePasteText(raw);
   if(!text) return null;
   text = text.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
-  try {
-    const parsed = JSON.parse(text);
-    if(Array.isArray(parsed)) return parsed[0] || null;
-    return parsed;
-  } catch {}
+
+  // ChatGPTの返答が前後に説明文を含んでも、JSON部分だけを優先して拾う。
+  const candidates = [text];
   const arrayMatch = text.match(/\[[\s\S]*\]/);
-  if(arrayMatch){
-    try{
-      const parsed = JSON.parse(arrayMatch[0]);
+  if(arrayMatch) candidates.push(arrayMatch[0]);
+  const objectMatch = text.match(/\{[\s\S]*\}/);
+  if(objectMatch) candidates.push(objectMatch[0]);
+
+  for(const c of candidates){
+    try {
+      const parsed = JSON.parse(c);
       if(Array.isArray(parsed)) return parsed[0] || null;
-    }catch{}
+      if(parsed && typeof parsed === 'object') return parsed;
+    } catch {}
   }
-  const match = text.match(/\{[\s\S]*\}/);
-  if(match){
-    try { return JSON.parse(match[0]); } catch {}
-  }
+
+  // JSONとして壊れていても「商品名：牛乳」や "product_name":"牛乳" を読めるようにする。
   const obj = {};
   text.split(/\n|,/).forEach(line => {
-    const m = line.match(/^\s*[-・*]?\s*([^:：=]+)[:：=]\s*(.+?)\s*$/);
+    const m = line.match(/^\s*[-・*]?\s*([^:=]+)[:=]\s*(.+?)\s*$/);
     if(!m) return;
-    const key = m[1].trim().replace(/[「」\[\]]/g,'');
-    const val = m[2].trim().replace(/^"|"$/g,'');
-    obj[key] = val;
+    const key = cleanAiKey(m[1]);
+    const val = cleanAiValue(m[2]);
+    if(key && val) obj[key] = val;
   });
+
+  // 1行JSON風で分割に失敗した時の保険
+  const pairRegex = /["']?([^"'{}:,]+)["']?\s*:\s*["']?([^"'{},]+)["']?/g;
+  let m;
+  while((m = pairRegex.exec(text))){
+    const key = cleanAiKey(m[1]);
+    const val = cleanAiValue(m[2]);
+    if(key && val && !obj[key]) obj[key] = val;
+  }
+
   return Object.keys(obj).length ? obj : null;
 }
 
 function pick(obj, keys){
+  if(!obj) return '';
+  const map = {};
+  Object.keys(obj).forEach(k => {
+    map[cleanAiKey(k)] = obj[k];
+  });
   for(const k of keys){
-    if(obj && obj[k] !== undefined && obj[k] !== null && String(obj[k]).trim() !== '') return String(obj[k]).trim();
+    const direct = obj[k];
+    if(direct !== undefined && direct !== null && String(direct).trim() !== '') return cleanAiValue(direct);
+    const nk = cleanAiKey(k);
+    const v = map[nk];
+    if(v !== undefined && v !== null && String(v).trim() !== '') return cleanAiValue(v);
   }
   return '';
 }
@@ -1277,9 +1323,9 @@ function setUnitIfExists(unit){
 async function applyProductAiResult(autoRegister=false){
   const raw = $('productAiResult')?.value || '';
   const data = normalizeAiData(extractJsonObject(raw));
-  if(!data){ alert('AI結果を読み取れませんでした。JSON形式、または「商品名：牛乳」のような形式で貼り付けてください。'); return; }
+  if(!data){ alert('AI結果を読み取れませんでした。コピーした内容をそのまま貼るか、「商品名：牛乳」のような形式で貼り付けてください。'); return; }
   if(data.product_name) $('productName').value = data.product_name;
-  if(data.volume) $('productVolume').value = String(data.volume).replace(/[^0-9.]/g,'');
+  if(data.volume) $('productVolume').value = String(data.volume).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace('．','.').replace(/[^0-9.]/g,'');
   if(data.unit) setUnitIfExists(data.unit);
   if(data.category) $('productCategory').value = data.category;
   const msg = `反映しました${data.confidence ? `（確信度：${data.confidence}）` : ''}。${autoRegister ? '製品登録まで実行します。' : '内容を確認して「製品を追加」を押してください。'}${data.notes ? ' メモ：' + data.notes : ''}`;
@@ -1289,7 +1335,7 @@ async function applyProductAiResult(autoRegister=false){
   setTimeout(() => $('productName')?.scrollIntoView({behavior:'smooth', block:'center'}), 80);
   if(autoRegister){
     if(!($('productName')?.value || '').trim()){
-      alert('商品名が読み取れませんでした。商品名だけ入力してから登録してください。');
+      alert('商品名が読み取れませんでした。商品名だけ手入力すると登録できます。貼り付け内容に product_name または 商品名 が含まれているか確認してください。');
       return;
     }
     await addProduct();
