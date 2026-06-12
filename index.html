@@ -8,7 +8,23 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <div class="app-shell">
+  <section id="loginGate" class="login-gate">
+    <div class="login-card">
+      <p class="eyebrow">承認制ログイン</p>
+      <h1>おとくメモ</h1>
+      <p class="small">承認されたアカウント名と共通パスワードで入れます。</p>
+      <label>アカウント名
+        <input id="loginAccount" autocomplete="username" placeholder="例：kazuki" />
+      </label>
+      <label>パスワード
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="共通パスワード" />
+      </label>
+      <button id="loginBtn" class="primary wide-btn" type="button">ログイン</button>
+      <p id="loginStatus" class="small"></p>
+      <p class="small">初期管理者：kazuki / 共通パスワード：12345</p>
+    </div>
+  </section>
+  <div class="app-shell locked">
     <header class="hero">
       <div>
         <p class="eyebrow">買い物お助けアプリ</p>
@@ -27,6 +43,34 @@
       <label>Publishable key
         <input id="supabaseKey" placeholder="sb_publishable_..." />
       </label>
+      <div class="family-config-box">
+        <h3>家族共有</h3>
+        <p class="small">同じ家族IDを入れた端末同士で、買い物リストを共有できます。商品・価格情報は全体共有です。</p>
+        <label>家族メンバー名
+          <input id="memberName" placeholder="例：パパ、ママ、かずき" />
+        </label>
+        <p class="small">価格履歴や買い物リストに、誰が登録したかを残せます。</p>
+        <label>家族ID / 合言葉
+          <input id="familyCode" placeholder="例：watanabe-family" />
+        </label>
+        <p class="small">家族IDを空にすると「default」になります。家族だけで分かる短い英数字がおすすめです。</p>
+      </div>
+      <div class="account-config-box">
+        <h3>アカウント承認</h3>
+        <p class="small">管理者 kazuki でログイン中のみ、新しいアカウント名を承認できます。パスワードは全員共通です。</p>
+        <div class="login-current">ログイン中：<strong id="currentAccountName">未ログイン</strong></div>
+        <div id="adminApprovalBox" class="hidden">
+          <label>承認するアカウント名
+            <input id="approvedAccountInput" placeholder="例：mama、papa" />
+          </label>
+          <div class="button-row">
+            <button id="addApprovedAccountBtn" class="primary" type="button">アカウントを承認</button>
+            <button id="refreshApprovedAccountsBtn" class="ghost" type="button">一覧を更新</button>
+          </div>
+          <div id="approvedAccountList" class="approved-list"></div>
+        </div>
+        <button id="logoutBtn" class="ghost wide-btn" type="button">ログアウト</button>
+      </div>
       <div class="button-row">
         <button id="saveConfigBtn" class="primary" type="button">設定を保存</button>
         <button id="clearConfigBtn" class="ghost" type="button">設定を消す</button>
@@ -46,6 +90,14 @@
           <strong id="productCount">0件</strong>
           <span>製品詳細と価格を記録</span>
         </div>
+      </section>
+
+      <section class="family-status-card">
+        <div>
+          <p class="eyebrow mini">共有モード</p>
+          <strong id="familyStatus">家族ID：default</strong>
+        </div>
+        <span>商品・価格は全体共有 / 買い物リストは家族IDごと / 登録者名を記録</span>
       </section>
 
       <p id="appStatus" class="notice small">読み込み中...</p>
@@ -96,9 +148,30 @@
       </nav>
 
       <section id="products" class="tab-panel active">
+
+        <div class="card ai-card">
+          <div class="section-title-row">
+            <div>
+              <p class="eyebrow mini">新商品登録を楽にする</p>
+              <h2>商品写真AI入力</h2>
+            </div>
+            <span class="sub-label">写真→貼り付け</span>
+          </div>
+          <p class="small">商品写真をChatGPTに送る時のプロンプトをコピーできます。返ってきたJSONを貼り付けると、製品名・容量・ジャンルをフォームに反映します。</p>
+          <div class="button-row">
+            <button id="copyProductPromptBtn" class="ghost" type="button">商品写真用プロンプトをコピー</button>
+            <button id="clearProductAiBtn" class="ghost" type="button">貼り付け欄クリア</button>
+          </div>
+          <textarea id="productAiResult" class="ai-textarea" placeholder='ChatGPTの結果をここに貼り付け&#10;例：{"product_name":"牛乳","category":"食品","volume":1000,"unit":"ml"}'></textarea>
+          <button id="applyProductAiBtn" class="primary wide-btn" type="button">AI結果を製品登録欄に反映</button>
+          <p id="productAiStatus" class="small"></p>
+        </div>
         <div class="card">
           <h2>製品登録</h2>
-          <input id="productName" placeholder="製品名 例：アタックZERO 詰め替え" />
+          <input id="productEditId" type="hidden" />
+          <input id="productName" list="productNameSuggestions" placeholder="製品名 例：アタックZERO 詰め替え" />
+          <datalist id="productNameSuggestions"></datalist>
+          <div id="productQuickChips" class="chip-row assist-chips"></div>
           <div class="form-row">
             <input id="productVolume" type="number" placeholder="容量 例：750" />
             <select id="productUnit">
@@ -109,12 +182,20 @@
               <option value="個">個</option>
               <option value="枚">枚</option>
               <option value="ロール">ロール</option>
+              <option value="本">本</option>
+              <option value="パック">パック</option>
             </select>
           </div>
-          <input id="productCategory" placeholder="ジャンル 例：日用品・食品" />
-          <button id="addProductBtn" class="primary" type="button">製品を追加</button>
+          <div id="volumeChips" class="chip-row assist-chips"></div>
+          <input id="productCategory" list="categorySuggestions" placeholder="ジャンル 例：日用品・食品" />
+          <datalist id="categorySuggestions"></datalist>
+          <div id="categoryChips" class="chip-row assist-chips"></div>
+          <div class="button-row product-form-actions">
+            <button id="addProductBtn" class="primary" type="button">製品を追加</button>
+            <button id="cancelProductEditBtn" class="ghost hidden" type="button">編集をやめる</button>
+          </div>
         </div>
-        <p class="small">登録した製品ごとに、最新価格・最安値・平均価格・店舗を表示します。</p>
+        <p class="small">登録した製品ごとに、最新価格・最安値・平均価格・店舗・価格履歴グラフを表示します。よく買う商品は「上に固定」で先頭に表示できます。</p>
         <div id="productList" class="product-grid"></div>
       </section>
 
@@ -152,12 +233,40 @@
         <div class="card">
           <h2>価格登録・店舗比較</h2>
           <p class="small">商品カードの「価格を追加」から来ると、商品と前回店舗が自動で入ります。価格だけ入力して登録できます。</p>
+
+          <div class="ai-box">
+            <div class="section-title-row">
+              <div>
+                <p class="eyebrow mini">店頭で価格入力を楽にする</p>
+                <h3>値札AI入力</h3>
+              </div>
+              <span class="sub-label">値札→貼り付け</span>
+            </div>
+            <p class="small">値札写真をChatGPTに送る時のプロンプトをコピーできます。返ってきたJSONを貼り付けると、価格・店舗をフォームに反映します。</p>
+            <div class="button-row">
+              <button id="copyPricePromptBtn" class="ghost" type="button">値札用プロンプトをコピー</button>
+              <button id="clearPriceAiBtn" class="ghost" type="button">貼り付け欄クリア</button>
+            </div>
+            <textarea id="priceAiResult" class="ai-textarea" placeholder='ChatGPTの結果をここに貼り付け&#10;例：{"price":298,"store_name":"ウエルシア","tax_type":"税込"}'></textarea>
+            <button id="applyPriceAiBtn" class="primary wide-btn" type="button">AI結果を価格登録欄に反映</button>
+            <p id="priceAiStatus" class="small"></p>
+          </div>
+          <input id="priceEditId" type="hidden" />
           <select id="priceProduct"></select>
           <input id="storeName" list="storeSuggestions" placeholder="店舗名 例：ウエルシア" />
           <datalist id="storeSuggestions"></datalist>
           <div id="storeChips" class="chip-row"></div>
-          <input id="priceValue" type="number" placeholder="価格 例：350" />
-          <button id="addPriceBtn" class="primary" type="button">価格を登録</button>
+          <input id="storeBranch" list="branchSuggestions" placeholder="支店名 例：川口店・大宮店（任意）" />
+          <datalist id="branchSuggestions">
+            <option value="川口店"></option><option value="大宮店"></option><option value="浦和店"></option><option value="越谷店"></option><option value="草加店"></option><option value="所沢店"></option><option value="池袋店"></option><option value="新宿店"></option><option value="北千住店"></option><option value="船橋店"></option><option value="柏店"></option><option value="松戸店"></option>
+          </datalist>
+          <p class="small store-help">チェーン名だけでもOK。「～店」まで入れると店舗別履歴がより正確になります。</p>
+          <input id="priceValue" type="number" inputmode="numeric" placeholder="価格 例：350" />
+          <div id="priceChips" class="chip-row assist-chips"></div>
+          <div class="button-row price-form-actions">
+            <button id="addPriceBtn" class="primary" type="button">価格を登録</button>
+            <button id="cancelPriceEditBtn" class="ghost hidden" type="button">編集をやめる</button>
+          </div>
           <p class="small">同じ製品に複数店舗の価格を入れると、商品・価格タブで比較できます。</p>
         </div>
         <div id="priceList" class="list"></div>
@@ -179,6 +288,7 @@
     </main>
   </div>
 
+  <button id="backToTopBtn" class="back-to-top" type="button">↑ 上へ</button>
   <script src="app.js"></script>
 </body>
 </html>
