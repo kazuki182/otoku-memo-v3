@@ -118,6 +118,74 @@
         <p id="chatgptLinkStatus" class="small"></p>
       </section>
 
+      <section id="howToHomeCard" class="card howto-home-card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow mini">はじめて使う方へ</p>
+            <h2>使い方ガイド</h2>
+          </div>
+          <span class="sub-label">HELP</span>
+        </div>
+        <p class="small">商品登録、価格登録、AI貼り付け、家族共有の流れをかんたんに確認できます。</p>
+        <button id="openUsageGuideBtn" class="ghost wide-btn" type="button">使い方を見る</button>
+      </section>
+
+      <section id="usageGuide" class="card usage-guide hidden">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow mini">おとくメモの基本</p>
+            <h2>使い方</h2>
+          </div>
+          <button id="closeUsageGuideBtn" class="ghost mini-help-btn" type="button">閉じる</button>
+        </div>
+
+        <div class="guide-step">
+          <span>1</span>
+          <div>
+            <h3>まず商品を登録</h3>
+            <p>商品・価格タブで、普段買う商品を登録します。製品名は候補から選べます。写真を選ぶと商品カードに表示できます。</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <span>2</span>
+          <div>
+            <h3>価格を追加</h3>
+            <p>商品カードの「価格を追加」または「同じ店で追加」から登録します。日付・店舗・価格を入れると、店舗別履歴に残ります。</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <span>3</span>
+          <div>
+            <h3>値札・商品写真はChatGPTで補助</h3>
+            <p>「商品写真用プロンプト」または「値札用プロンプト」をコピーし、ChatGPTに写真と一緒に送ります。返ってきた結果を貼り付けると入力欄に反映できます。</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <span>4</span>
+          <div>
+            <h3>買い時と履歴を見る</h3>
+            <p>商品カードでは、最新価格・最安値・平均価格・買い時判定を確認できます。詳細を開くと、店舗別価格履歴とグラフが見られます。</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <span>5</span>
+          <div>
+            <h3>家族で使う</h3>
+            <p>設定で家族IDとメンバー名を登録します。商品・価格情報は全体共有、買い物リストは家族IDごとに共有されます。</p>
+          </div>
+        </div>
+
+        <div class="guide-shortcuts">
+          <button class="ghost" type="button" data-guide-tab="products">商品登録へ</button>
+          <button class="ghost" type="button" data-guide-tab="prices">価格登録へ</button>
+          <button class="ghost" type="button" data-guide-tab="shopping">買い物リストへ</button>
+        </div>
+      </section>
+
       <p id="appStatus" class="notice small">読み込み中...</p>
 
       <section class="card quick-compare-card" id="homeQuickCompare">

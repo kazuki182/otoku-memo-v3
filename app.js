@@ -263,7 +263,7 @@ const PRESET_STORES = [
   'カインズ','ビバホーム','スーパービバホーム','島忠','島忠ホームズ','コーナン','ケーヨーデイツー','ドン・キホーテ','MEGAドンキ','コストコ'
 ];
 
-const STATION_SUGGESTIONS = ['川口','西川口','蕨','浦和','南浦和','武蔵浦和','大宮','さいたま新都心','与野','戸田公園','草加','越谷','南越谷','新越谷','春日部','所沢','川越','和光市','朝霞台','志木','池袋','新宿','渋谷','上野','北千住','赤羽','亀有','金町','葛西','西葛西','船橋','西船橋','市川','本八幡','松戸','柏','流山おおたかの森','津田沼','千葉'];
+const STATION_SUGGESTIONS = ['川口','川口元郷','東川口','西川口','蕨','戸田','戸田公園','北戸田','浦和','北浦和','南浦和','東浦和','武蔵浦和','中浦和','大宮','さいたま新都心','与野','与野本町','北与野','草加','谷塚','獨協大学前','新田','越谷','北越谷','南越谷','新越谷','せんげん台','春日部','所沢','新所沢','小手指','川越','本川越','川越市','和光市','朝霞','朝霞台','北朝霞','志木','ふじみ野','上福岡','池袋','新宿','渋谷','上野','日暮里','北千住','赤羽','王子','板橋','亀有','金町','綾瀬','葛西','西葛西','船橋','西船橋','東船橋','市川','本八幡','下総中山','松戸','新松戸','北松戸','柏','南柏','北柏','流山おおたかの森','南流山','津田沼','新津田沼','千葉','蘇我','稲毛','幕張本郷'];
 
 const COMMON_PRODUCTS = [
   '牛乳','卵','食パン','米','水','お茶','コーヒー','ヨーグルト','納豆','豆腐','醤油','みりん','料理酒','サラダ油','オリーブオイル','マヨネーズ','ケチャップ',
@@ -303,11 +303,40 @@ function getUsedStores(){
 function getNearestStation(){
   return (localStorage.getItem('nearestStation') || '').trim();
 }
+function getNearestStationInputValue(){
+  const typed = ($('nearestStation')?.value || '').trim();
+  return typed || getNearestStation();
+}
+function normalizeStationKeyword(value){
+  return String(value || '').replace(/[\s　駅]/g,'').toLowerCase();
+}
+function getStationHistory(){
+  try{ return JSON.parse(localStorage.getItem('stationHistory') || '[]'); }catch(e){ return []; }
+}
+function rememberStation(name){
+  const clean = String(name || '').trim();
+  if(!clean) return;
+  const current = getStationHistory();
+  localStorage.setItem('stationHistory', JSON.stringify([clean, ...current.filter(v => v !== clean)].slice(0, 20)));
+}
+function getStationCandidates(query=''){
+  const saved = getNearestStation();
+  const all = [...new Set([saved, ...getStationHistory(), ...STATION_SUGGESTIONS].filter(Boolean))];
+  const q = normalizeStationKeyword(query);
+  const list = q ? all.filter(name => normalizeStationKeyword(name).includes(q) || q.includes(normalizeStationKeyword(name))) : all;
+  return list.slice(0, 18);
+}
+function setNearestStation(name){
+  if($('nearestStation')) $('nearestStation').value = name;
+  renderStationAssist();
+  renderStoreSuggestions();
+}
+window.setNearestStation = setNearestStation;
 function getChatgptLink(){
   return (localStorage.getItem('chatgptLink') || '').trim();
 }
 function stationBranchCandidates(){
-  const station = getNearestStation();
+  const station = getNearestStationInputValue();
   const basic = ['駅前店','駅東口店','駅西口店','駅前通り店','店'];
   const defaults = ['川口店','大宮店','浦和店','越谷店','草加店','所沢店','池袋店','新宿店','北千住店','船橋店','柏店','松戸店'];
   const stationOnes = station ? basic.map(suffix => `${station}${suffix}`) : [];
@@ -832,15 +861,26 @@ function renderShoppingProductSelect(){
 }
 
 
+function renderStationAssist(){
+  const input = $('nearestStation');
+  const query = (input?.value || '').trim();
+  const candidates = getStationCandidates(query);
+  const stationList = $('stationSuggestions');
+  if(stationList){
+    stationList.innerHTML = candidates.map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
+  }
+  const chips = $('stationChips');
+  if(chips){
+    chips.innerHTML = candidates.slice(0, 10).map(name => `<button class="chip" type="button" onclick="setNearestStation('${escapeHtml(name).replace(/'/g,'&#039;')}')">${escapeHtml(name)}</button>`).join('');
+  }
+}
+
 function renderStoreSuggestions(){
   const datalist = $('storeSuggestions');
   if(datalist){
     datalist.innerHTML = getStoreCandidates().map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
   }
-  const stationList = $('stationSuggestions');
-  if(stationList){
-    stationList.innerHTML = STATION_SUGGESTIONS.map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
-  }
+  renderStationAssist();
   const branchList = $('branchSuggestions');
   if(branchList){
     branchList.innerHTML = stationBranchCandidates().map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
@@ -1528,6 +1568,21 @@ function applyPriceAiResult(){
   setStatus('値札AIの結果を価格登録欄に反映しました。内容を確認してください。','ok');
 }
 
+
+function openUsageGuide(){
+  const guide = $('usageGuide');
+  if(!guide) return;
+  guide.classList.remove('hidden');
+  guide.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function closeUsageGuide(){
+  const guide = $('usageGuide');
+  if(!guide) return;
+  guide.classList.add('hidden');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
 function setupEvents(){
   $('loginBtn')?.addEventListener('click', login);
   $('loginPassword')?.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') login(); });
@@ -1535,6 +1590,13 @@ function setupEvents(){
   $('addApprovedAccountBtn')?.addEventListener('click', addApprovedAccount);
   $('refreshApprovedAccountsBtn')?.addEventListener('click', async ()=>{ await loadApprovedAccounts(); setStatus('承認済みアカウント一覧を更新しました。','ok'); });
   $('backToTopBtn')?.addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'}));
+  $('openUsageGuideBtn')?.addEventListener('click', openUsageGuide);
+  $('closeUsageGuideBtn')?.addEventListener('click', closeUsageGuide);
+  document.querySelectorAll('[data-guide-tab]').forEach(btn => btn.addEventListener('click', () => {
+    const target = btn.dataset.guideTab;
+    document.querySelector(`[data-tab="${target}"]`)?.click();
+    document.querySelector('.tabs')?.scrollIntoView({behavior:'smooth', block:'center'});
+  }));
   window.addEventListener('scroll', () => { const b=$('backToTopBtn'); if(b) b.classList.toggle('show', window.scrollY > 420); });
   document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('.tab,.tab-panel').forEach(e => e.classList.remove('active'));
@@ -1552,7 +1614,9 @@ function setupEvents(){
     localStorage.setItem('supabaseKey', $('supabaseKey').value.trim());
     localStorage.setItem('familyCode', ($('familyCode')?.value || 'default').trim() || 'default');
     localStorage.setItem('memberName', ($('memberName')?.value || currentAccount || '').trim());
-    localStorage.setItem('nearestStation', ($('nearestStation')?.value || '').trim());
+    const stationValue = ($('nearestStation')?.value || '').trim();
+    localStorage.setItem('nearestStation', stationValue);
+    rememberStation(stationValue);
     localStorage.setItem('chatgptLink', ($('chatgptLink')?.value || '').trim());
     initSupabase();
     await loadAll();
@@ -1561,11 +1625,14 @@ function setupEvents(){
     localStorage.removeItem('supabaseUrl');
     localStorage.removeItem('supabaseKey');
     localStorage.removeItem('nearestStation');
+    localStorage.removeItem('stationHistory');
     localStorage.removeItem('chatgptLink');
     initSupabase();
     await loadAll();
   });
   $('addProductBtn').addEventListener('click', addProduct);
+  $('nearestStation')?.addEventListener('input', () => { renderStationAssist(); renderStoreSuggestions(); });
+  $('nearestStation')?.addEventListener('change', () => { renderStationAssist(); renderStoreSuggestions(); });
   $('productName').addEventListener('input', autoAssistProductFields);
   $('copyProductPromptBtn').addEventListener('click', () => copyText(PRODUCT_PHOTO_PROMPT, 'productAiStatus'));
   $('applyProductAiBtn').addEventListener('click', () => applyProductAiResult(false));
