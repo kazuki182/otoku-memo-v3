@@ -523,6 +523,22 @@ function initSupabase(){
   $('configStatus').textContent = 'Supabase未設定です。ブラウザ内保存で使います。';
 }
 
+function normalizeProductRecord(p){
+  if(!p) return p;
+  return {
+    ...p,
+    product_name: p.product_name || p.name || p.title || p.item_name || '',
+    volume: p.volume ?? p.amount ?? null,
+    unit: p.unit || '',
+    category: p.category || p.genre || ''
+  };
+}
+
+function isMissingColumnError(error, columnName){
+  const msg = String(error?.message || error?.details || '');
+  return msg.includes(columnName) && (msg.includes('schema cache') || msg.includes('column') || msg.includes('Could not find'));
+}
+
 async function loadAll(){
   await loadApprovedAccounts();
   await loadSupportConfig();
@@ -534,7 +550,7 @@ async function loadAll(){
     if(pr.error){ fallbackToLocal('価格データの読み込みに失敗したため、ブラウザ内保存に切り替えました。'); return; }
     const s = await supabaseClient.from('shopping_items').select('*').eq('family_code', getFamilyCode()).order('created_at',{ascending:false});
     if(s.error){ fallbackToLocal('買い物リストの読み込みに失敗したため、ブラウザ内保存に切り替えました。'); return; }
-    products = p.data || [];
+    products = (p.data || []).map(normalizeProductRecord);
     prices = pr.data || [];
     shoppingItems = s.data || [];
     render();
@@ -542,7 +558,7 @@ async function loadAll(){
     return;
   }
 
-  products = readLocal('otokuProducts');
+  products = readLocal('otokuProducts').map(normalizeProductRecord);
   prices = readLocal('otokuPrices');
   shoppingItems = readLocal(shoppingStorageKey());
   render();
@@ -553,7 +569,7 @@ function fallbackToLocal(message){
   console.warn(message);
   mode = 'local';
   supabaseClient = null;
-  products = readLocal('otokuProducts');
+  products = readLocal('otokuProducts').map(normalizeProductRecord);
   prices = readLocal('otokuPrices');
   shoppingItems = readLocal(shoppingStorageKey());
   render();
@@ -1073,13 +1089,23 @@ async function addProduct(){
 
   if(mode === 'supabase' && supabaseClient){
     if(editId){
-      const res = await supabaseClient.from('products').update(item).eq('id', editId);
+      let res = await supabaseClient.from('products').update(item).eq('id', editId);
+      if(res.error && isMissingColumnError(res.error, 'product_name')){
+        const legacyItem = {...item, name: item.product_name};
+        delete legacyItem.product_name;
+        res = await supabaseClient.from('products').update(legacyItem).eq('id', editId);
+      }
       if(res.error){
         setStatus(`クラウドへの商品更新に失敗しました：${res.error.message}。schema.sqlをSupabaseで再実行してください。`, 'error');
         return;
       }
     } else {
-      const res = await supabaseClient.from('products').insert({...item, created_at: new Date().toISOString()}).select().single();
+      let res = await supabaseClient.from('products').insert({...item, created_at: new Date().toISOString()}).select().single();
+      if(res.error && isMissingColumnError(res.error, 'product_name')){
+        const legacyItem = {...item, name: item.product_name, created_at: new Date().toISOString()};
+        delete legacyItem.product_name;
+        res = await supabaseClient.from('products').insert(legacyItem).select().single();
+      }
       if(res.error){
         setStatus(`クラウドへの商品登録に失敗しました：${res.error.message}。schema.sqlをSupabaseで再実行してください。`, 'error');
         return;
@@ -1617,9 +1643,14 @@ function setupEvents(){
   }));
   window.addEventListener('scroll', () => { const b=$('backToTopBtn'); if(b) b.classList.toggle('show', window.scrollY > 420); });
   document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+    const guide = $('usageGuidePage');
+    const main = $('mainContent');
+    guide?.classList.add('hidden');
+    main?.classList.remove('hidden');
     document.querySelectorAll('.tab,.tab-panel').forEach(e => e.classList.remove('active'));
     btn.classList.add('active');
-    $(btn.dataset.tab).classList.add('active');
+    $(btn.dataset.tab)?.classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
   }));
 
   $('productCountCard')?.addEventListener('click', () => { document.querySelector('[data-tab="products"]')?.click(); $('productList')?.scrollIntoView({behavior:'smooth', block:'start'}); });

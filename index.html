@@ -150,6 +150,16 @@
     </section>
 
     <main id="mainContent">
+      <nav class="tabs">
+        <button class="tab active" data-tab="home" type="button">HOME</button>
+        <button class="tab" data-tab="products" type="button">商品・価格</button>
+        <button class="tab" data-tab="prices" type="button">価格登録</button>
+        <button class="tab" data-tab="compare" type="button">容量比較</button>
+        <button class="tab sub-tab" data-tab="shopping" type="button">買い物リスト</button>
+        <button class="tab support-tab" data-tab="support" type="button">応援</button>
+      </nav>
+
+      <section id="home" class="tab-panel active home-panel">
       <section id="howToHomeCard" class="card howto-home-card top-help-card">
         <div class="section-title-row">
           <div>
@@ -228,15 +238,11 @@
         <div id="quickCompareResult" class="result hidden"></div>
       </section>
 
-      <nav class="tabs">
-        <button class="tab active" data-tab="products" type="button">商品・価格</button>
-        <button class="tab" data-tab="prices" type="button">価格登録</button>
-        <button class="tab" data-tab="compare" type="button">容量比較</button>
-        <button class="tab sub-tab" data-tab="shopping" type="button">買い物リスト</button>
-        <button class="tab support-tab" data-tab="support" type="button">応援</button>
-      </nav>
+      </section>
 
-      <section id="products" class="tab-panel active">
+
+
+      <section id="products" class="tab-panel">
 
         <div class="card ai-card">
           <div class="section-title-row">

@@ -56,6 +56,22 @@ create table if not exists shopping_items (
   created_at timestamptz default now()
 );
 
+
+-- v26 safety: 古いproductsテーブルがある場合でもproduct_nameを追加します
+alter table products add column if not exists product_name text;
+alter table products add column if not exists volume numeric;
+alter table products add column if not exists unit text;
+alter table products add column if not exists category text;
+alter table products add column if not exists created_at timestamptz default now();
+
+-- 旧版でname列を使っていた場合はproduct_nameへコピーします
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_name='products' and column_name='name') then
+    execute 'update products set product_name = coalesce(product_name, name) where product_name is null';
+  end if;
+end $$;
+
 alter table products add column if not exists is_favorite boolean default false;
 alter table price_records add column if not exists member_name text;
 alter table shopping_items add column if not exists product_id uuid references products(id) on delete set null;
