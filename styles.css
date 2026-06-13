@@ -83,3 +83,20 @@ body{padding-bottom:96px}
 .tab{font-size:11px;line-height:1.15}
 .home-panel{padding-bottom:8px}
 @media(max-width:640px){.tabs{grid-template-columns:repeat(6,1fr);gap:5px;padding:7px}.tab{font-size:10px;min-height:48px;padding:8px 2px}.support-tab{font-size:10px}}
+
+
+.debug-output{
+  white-space:pre-wrap;
+  word-break:break-word;
+  background:#1f1f1f;
+  color:#f7f7f7;
+  border-radius:18px;
+  padding:16px;
+  font-size:13px;
+  line-height:1.6;
+  max-height:280px;
+  overflow:auto;
+}
+.debug-card{
+  border-color:#d7f2e7;
+}

@@ -583,6 +583,94 @@ function saveLocalAll(){
 }
 
 
+function debugLine(lines, label, value){
+  lines.push(`${label}: ${value}`);
+}
+
+async function runDiagnostics(){
+  const out = $('debugOutput');
+  const lines = [];
+  if(out){
+    out.classList.remove('hidden');
+    out.textContent = '診断中...';
+  }
+  try{
+    debugLine(lines, 'ログイン中', currentAccount || '未ログイン');
+    debugLine(lines, '保存モード', mode);
+    debugLine(lines, 'Supabase URL', localStorage.getItem('supabaseUrl') || DEFAULT_SUPABASE_URL || '未設定');
+    debugLine(lines, 'Supabase key', ((localStorage.getItem('supabaseKey') || DEFAULT_SUPABASE_KEY || '').slice(0,18) + '...'));
+    debugLine(lines, '画面上の商品件数', products.length);
+
+    if(!supabaseClient || mode !== 'supabase'){
+      lines.push('結果: Supabaseに接続されていません。設定を確認してください。');
+      lines.push('対策: 設定にSupabase URLとPublishable keyを保存してください。');
+      if(out) out.textContent = lines.join('\n');
+      console.log('[otoku diagnostics]', lines);
+      return;
+    }
+
+    const readRes = await supabaseClient.from('products').select('*').limit(1);
+    if(readRes.error){
+      lines.push('products読み込み: NG');
+      lines.push(`ERROR: ${readRes.error.message}`);
+      lines.push('対策: v26以降のschema.sqlをSupabase SQL Editorで再実行してください。');
+      if(out) out.textContent = lines.join('\n');
+      console.error('[otoku diagnostics]', readRes.error);
+      return;
+    }
+    lines.push('products読み込み: OK');
+    if(readRes.data && readRes.data[0]){
+      lines.push('products列: ' + Object.keys(readRes.data[0]).join(', '));
+    } else {
+      lines.push('products列: データ0件のため列名は表示できません。テスト登録で確認します。');
+    }
+
+    const testName = `診断テスト_${Date.now()}`;
+    const insertRes = await supabaseClient.from('products').insert({
+      product_name: testName,
+      volume: 1,
+      unit: '個',
+      category: '診断',
+      created_at: new Date().toISOString()
+    }).select().single();
+
+    if(insertRes.error){
+      lines.push('商品テスト登録: NG');
+      lines.push(`ERROR: ${insertRes.error.message}`);
+      if(isMissingColumnError(insertRes.error, 'product_name')){
+        lines.push('原因候補: productsテーブルに product_name 列がありません。');
+      }
+      lines.push('対策: v26以降のschema.sqlをSupabase SQL Editorで再実行してください。');
+      if(out) out.textContent = lines.join('\n');
+      console.error('[otoku diagnostics]', insertRes.error);
+      return;
+    }
+
+    lines.push('商品テスト登録: OK');
+    lines.push(`登録ID: ${insertRes.data?.id || '不明'}`);
+
+    if(insertRes.data?.id){
+      const delRes = await supabaseClient.from('products').delete().eq('id', insertRes.data.id);
+      if(delRes.error){
+        lines.push(`テスト商品の削除: NG / ${delRes.error.message}`);
+      } else {
+        lines.push('テスト商品の削除: OK');
+      }
+    }
+
+    lines.push('結論: Supabase保存は動いています。もう一度、製品登録を試してください。');
+    if(out) out.textContent = lines.join('\n');
+    console.log('[otoku diagnostics]', lines);
+  }catch(err){
+    lines.push('診断中にエラーが発生しました。');
+    lines.push(String(err?.message || err));
+    if(out) out.textContent = lines.join('\n');
+    console.error('[otoku diagnostics fatal]', err);
+  }
+}
+window.runDiagnostics = runDiagnostics;
+
+
 function renderHomeSettings(){
   const chatStatus = $('chatgptLinkStatus');
   if(chatStatus){
@@ -1699,6 +1787,7 @@ function setupEvents(){
   $('quickCompareClearBtn').addEventListener('click', clearQuickCompare);
   $('voiceBtn').addEventListener('click', voice);
   $('openChatgptBtn')?.addEventListener('click', openChatgptLink);
+  $('runDiagnosticsBtn')?.addEventListener('click', runDiagnostics);
   $('productImageInput')?.addEventListener('change', (e) => handleProductImageFile(e.target.files?.[0]));
 }
 
