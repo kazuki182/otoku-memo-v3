@@ -3,13 +3,28 @@ let mode = 'local';
 let products = [];
 let prices = [];
 let shoppingItems = [];
-let approvedAccounts = ['kazuki'];
+let approvedAccounts = ['kazuki','Yoshino'];
 let supportConfig = { paypay_id: '', paypay_url: '', message: '無料で便利に使えるアプリを目指しています。応援いただけると開発継続の励みになります。' };
 let currentAccount = localStorage.getItem('currentAccount') || '';
+let pendingProductImageData = '';
 const FIXED_LOGIN_PASSWORD = '12345';
 
 const $ = (id) => document.getElementById(id);
 const yen = (n) => `${Math.round(Number(n)||0).toLocaleString()}円`;
+const formatDate = (value) => {
+  const d = value ? new Date(value) : new Date();
+  if(Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+};
+const todayDateInput = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+};
+const dateInputToIso = (value) => {
+  if(!value) return new Date().toISOString();
+  const d = new Date(`${value}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+};
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()+Math.random()));
 
 function getFamilyCode(){
@@ -243,10 +258,12 @@ function renderApprovedAccounts(){
 
 
 const PRESET_STORES = [
-  'イオン','イオンスタイル','まいばすけっと','マックスバリュ','イトーヨーカドー','ヨークフーズ','ヨークマート','西友','ライフ','サミット','オーケー','ベルク','ヤオコー','マルエツ','マルエツプチ','東武ストア','カスミ','フードスクエアカスミ','コモディイイダ','ロピア','業務スーパー','いなげや','Olympic','オリンピック',
-  'ウエルシア','マツモトキヨシ','ココカラファイン','スギ薬局','サンドラッグ','クリエイトSD','ツルハドラッグ','セイムス','ドラッグコスモス','トモズ',
+  'イオン','イオンスタイル','まいばすけっと','マックスバリュ','イトーヨーカドー','ヨークフーズ','ヨークマート','ヨークプライス','西友','ライフ','サミット','オーケー','ベルク','ベルクス','ヤオコー','マルエツ','マルエツプチ','東武ストア','カスミ','フードスクエアカスミ','コモディイイダ','ロピア','業務スーパー','いなげや','Olympic','オリンピック','ベイシア','マミーマート','ジャパンミート','ミートミート','ジョイフード','ダイレックス','アコレ','ビッグ・エー','成城石井','コープみらい','マルヤ','マルサン',
+  'ウエルシア','マツモトキヨシ','ココカラファイン','スギ薬局','サンドラッグ','クリエイトSD','ツルハドラッグ','セイムス','ドラッグコスモス','トモズ','ドラッグストアセキ','マツモトキヨシ薬局',
   'カインズ','ビバホーム','スーパービバホーム','島忠','島忠ホームズ','コーナン','ケーヨーデイツー','ドン・キホーテ','MEGAドンキ','コストコ'
 ];
+
+const STATION_SUGGESTIONS = ['川口','西川口','蕨','浦和','南浦和','武蔵浦和','大宮','さいたま新都心','与野','戸田公園','草加','越谷','南越谷','新越谷','春日部','所沢','川越','和光市','朝霞台','志木','池袋','新宿','渋谷','上野','北千住','赤羽','亀有','金町','葛西','西葛西','船橋','西船橋','市川','本八幡','松戸','柏','流山おおたかの森','津田沼','千葉'];
 
 const COMMON_PRODUCTS = [
   '牛乳','卵','食パン','米','水','お茶','コーヒー','ヨーグルト','納豆','豆腐','醤油','みりん','料理酒','サラダ油','オリーブオイル','マヨネーズ','ケチャップ',
@@ -283,9 +300,25 @@ function getUsedStores(){
   return [...new Set(prices.map(p => p.store_name).filter(Boolean))];
 }
 
+function getNearestStation(){
+  return (localStorage.getItem('nearestStation') || '').trim();
+}
+function getChatgptLink(){
+  return (localStorage.getItem('chatgptLink') || '').trim();
+}
+function stationBranchCandidates(){
+  const station = getNearestStation();
+  const basic = ['駅前店','駅東口店','駅西口店','駅前通り店','店'];
+  const defaults = ['川口店','大宮店','浦和店','越谷店','草加店','所沢店','池袋店','新宿店','北千住店','船橋店','柏店','松戸店'];
+  const stationOnes = station ? basic.map(suffix => `${station}${suffix}`) : [];
+  const used = prices.map(p => extractBranchName(p.store_name)).filter(Boolean);
+  return [...new Set([...used, ...stationOnes, ...defaults])];
+}
 function getStoreCandidates(){
   const last = localStorage.getItem('lastStoreName');
-  return [...new Set([last, ...getUsedStores(), ...PRESET_STORES].filter(Boolean))];
+  const usedBase = getUsedStores().map(s => splitStoreName(s).base).filter(Boolean);
+  // 表記ゆれを減らすため、チェーン名候補を優先して出す
+  return [...new Set([last ? splitStoreName(last).base : '', ...usedBase, ...PRESET_STORES].filter(Boolean))];
 }
 
 function getProductNameCandidates(){
@@ -383,6 +416,46 @@ function autoAssistProductFields(){
 function readLocal(key){ try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } }
 function writeLocal(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
 
+function setProductImagePreview(data){
+  const box = $('productImagePreview');
+  if(!box) return;
+  if(data){
+    box.classList.remove('hidden');
+    box.innerHTML = `<img src="${data}" alt="製品写真" /> <button class="ghost" type="button" onclick="clearProductImage()">写真を消す</button>`;
+  }else{
+    box.classList.add('hidden');
+    box.innerHTML = '';
+  }
+}
+function clearProductImage(){
+  pendingProductImageData = '';
+  if($('productImageInput')) $('productImageInput').value = '';
+  setProductImagePreview('');
+}
+window.clearProductImage = clearProductImage;
+function handleProductImageFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingProductImageData = String(reader.result || '');
+    setProductImagePreview(pendingProductImageData);
+  };
+  reader.readAsDataURL(file);
+}
+
+function openChatgptLink(){
+  const url = getChatgptLink();
+  if(!url){
+    alert('設定でChatGPTリンクを登録してください。');
+    $('configPanel')?.classList.remove('hidden');
+    $('chatgptLink')?.focus();
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+window.openChatgptLink = openChatgptLink;
+
+
 function setStatus(message, type=''){
   const el = $('appStatus');
   el.textContent = message;
@@ -400,6 +473,8 @@ function initSupabase(){
   $('supabaseKey').value = key;
   if($('familyCode')) $('familyCode').value = getFamilyCode();
   if($('memberName')) $('memberName').value = getMemberName() === '未設定' ? '' : getMemberName();
+  if($('nearestStation')) $('nearestStation').value = getNearestStation();
+  if($('chatgptLink')) $('chatgptLink').value = getChatgptLink();
   if($('familyStatus')) $('familyStatus').textContent = `家族ID：${getFamilyCode()} / メンバー：${getMemberName()} / ログイン：${currentAccount || '未ログイン'}`;
   migrateOldShoppingLocal();
 
@@ -456,6 +531,14 @@ function saveLocalAll(){
   writeLocal('otokuProducts', products);
   writeLocal('otokuPrices', prices);
   writeLocal(shoppingStorageKey(), shoppingItems.map(i => ({...i, family_code: i.family_code || getFamilyCode()}))); 
+}
+
+
+function renderHomeSettings(){
+  const chatStatus = $('chatgptLinkStatus');
+  if(chatStatus){
+    chatStatus.textContent = getChatgptLink() ? 'ChatGPTリンク登録済み。ボタンで開けます。' : '設定でChatGPTリンクを登録すると、このボタンから開けます。';
+  }
 }
 
 function render(){
@@ -540,8 +623,9 @@ function renderStoreHistory(product){
           <div class="store-history-rows">
             ${g.rows.slice(0,6).map(r => `
               <div class="history-row">
-                <span>${new Date(r.created_at || Date.now()).toLocaleDateString()}${r.member_name ? ' / ' + escapeHtml(r.member_name) : ''}</span>
+                <span class="date-strong">${formatDate(r.created_at)}${r.member_name ? ' / ' + escapeHtml(r.member_name) : ''}</span>
                 <b>${yen(r.price)}</b>
+                <button class="ghost mini-btn" type="button" onclick="openStorePrice('${product.id}', '${escapeHtml(g.store).replace(/'/g,'&#039;')}')">同じ店で追加</button>
                 <button class="ghost mini-btn" type="button" onclick="editPrice('${r.id}')">編集</button>
                 <button class="danger mini-btn" type="button" onclick="deletePrice('${r.id}')">削除</button>
               </div>
@@ -659,10 +743,10 @@ async function quickRegisterPrice(productId, price){
     localStorage.setItem(`lastStoreFor_${productId}`, storeName);
   }
   if(mode === 'supabase' && supabaseClient){
-    const res = await supabaseClient.from('price_records').insert({...item, created_at: new Date().toISOString()}).select().single();
+    const res = await supabaseClient.from('price_records').insert(item).select().single();
     if(res.error){ fallbackToLocal(`価格登録に失敗しました：${res.error.message}`); return; }
   } else {
-    prices.unshift({ id: uid(), ...item, created_at: new Date().toISOString() });
+    prices.unshift({ id: uid(), ...item });
     saveLocalAll();
   }
   setStatus(`${product.product_name}を${yen(price)}で登録しました。店舗：${storeName}`,'ok');
@@ -673,9 +757,10 @@ window.quickRegisterPrice = quickRegisterPrice;
 function renderProducts(){
   $('productList').innerHTML = sortedProducts().map(p => {
     const st = productPriceStats(p.id);
+    const img = p.image_data ? `<div class="product-photo"><img src="${p.image_data}" alt="${escapeHtml(p.product_name)}" /></div>` : '';
     if(!st){
       return `<div class="product-card">
-        <div class="product-head"><div><h3>${isProductPinned(p) ? '📌 ' : ''}${escapeHtml(p.product_name)}</h3><p class="small">${escapeHtml(p.category || '未分類')} / ${p.volume || '-'}${escapeHtml(p.unit || '')}</p></div><span class="badge pale">価格未登録</span></div>
+        <div class="product-head">${img}<div><h3>${isProductPinned(p) ? '📌 ' : ''}${escapeHtml(p.product_name)}</h3><p class="small">${escapeHtml(p.category || '未分類')} / ${p.volume || '-'}${escapeHtml(p.unit || '')}</p></div><span class="badge pale">価格未登録</span></div>
         <div class="empty-price">価格が未登録です。まず価格を1件登録すると、比較と買い時判定が使えます。</div>
         <div class="card-actions two-actions">
           <button class="primary wide-btn" type="button" onclick="openQuickPrice('${p.id}')">価格を追加</button>
@@ -693,7 +778,7 @@ function renderProducts(){
     const saved = Math.max(0, st.avg - st.latest.price);
     return `<div class="product-card">
       <div class="product-head">
-        <div><h3>${isProductPinned(p) ? '📌 ' : ''}${escapeHtml(p.product_name)}</h3><p class="small">${escapeHtml(p.category || '未分類')} / ${p.volume || '-'}${escapeHtml(p.unit || '')}</p></div>
+        ${img}<div><h3>${isProductPinned(p) ? '📌 ' : ''}${escapeHtml(p.product_name)}</h3><p class="small">${escapeHtml(p.category || '未分類')} / ${p.volume || '-'}${escapeHtml(p.unit || '')}</p></div>
         <span class="badge">${st.count}件</span>
       </div>
       <div class="price-main">
@@ -752,16 +837,23 @@ function renderStoreSuggestions(){
   if(datalist){
     datalist.innerHTML = getStoreCandidates().map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
   }
+  const stationList = $('stationSuggestions');
+  if(stationList){
+    stationList.innerHTML = STATION_SUGGESTIONS.map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
+  }
   const branchList = $('branchSuggestions');
   if(branchList){
-    const branches = [...new Set(prices.map(p => extractBranchName(p.store_name)).filter(Boolean))];
-    const defaults = ['川口店','大宮店','浦和店','越谷店','草加店','所沢店','池袋店','新宿店','北千住店','船橋店','柏店','松戸店'];
-    branchList.innerHTML = [...new Set([...branches, ...defaults])].map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
+    branchList.innerHTML = stationBranchCandidates().map(name => `<option value="${escapeHtml(name)}"></option>`).join('');
   }
   const chips = $('storeChips');
   if(chips){
-    const recent = getStoreCandidates().slice(0, 8);
+    const recent = getStoreCandidates().slice(0, 12);
     chips.innerHTML = recent.map(name => `<button class="chip" type="button" onclick="setStoreName('${escapeHtml(name).replace(/'/g,'&#039;')}')">${escapeHtml(name)}</button>`).join('');
+  }
+  const branchChips = $('branchChips');
+  if(branchChips){
+    const recentBranches = stationBranchCandidates().slice(0, 8);
+    branchChips.innerHTML = recentBranches.map(name => `<button class="chip" type="button" onclick="setBranchName('${escapeHtml(name).replace(/'/g,'&#039;')}')">${escapeHtml(name)}</button>`).join('');
   }
 }
 
@@ -790,6 +882,11 @@ function setStoreName(name){
   if($('storeBranch')) $('storeBranch').focus();
   else $('priceValue').focus();
 }
+function setBranchName(name){
+  if($('storeBranch')) $('storeBranch').value = name;
+  $('priceValue')?.focus();
+}
+window.setBranchName = setBranchName;
 window.setStoreName = setStoreName;
 
 function openQuickPrice(productId){
@@ -808,11 +905,22 @@ function openQuickPrice(productId){
 }
 window.openQuickPrice = openQuickPrice;
 
+function openStorePrice(productId, storeName){
+  openQuickPrice(productId);
+  const parts = splitStoreName(storeName || '');
+  $('storeName').value = parts.base;
+  if($('storeBranch')) $('storeBranch').value = parts.branch;
+  if($('priceDate')) $('priceDate').value = todayDateInput();
+  const product = products.find(p => p.id === productId);
+  setStatus(`${product?.product_name || '商品'}に、${storeName || '同じ店舗'}の新しい価格を追加します。日付と価格を確認してください。`, 'ok');
+}
+window.openStorePrice = openStorePrice;
+
 function renderPrices(){
   $('priceList').innerHTML = sortPriceRows(prices).map(r => {
     const product = products.find(p => p.id === r.product_id);
     const name = r.products?.product_name || product?.product_name || '商品';
-    return `<div class="item price-item"><div><h3>${escapeHtml(name)}</h3><p class="small">${escapeHtml(r.store_name || '店舗未入力')} / ${new Date(r.created_at).toLocaleDateString()}${r.member_name ? ' / 登録者：' + escapeHtml(r.member_name) : ''}</p></div><span class="badge">${yen(r.price)}</span><div class="item-actions"><button class="ghost" type="button" onclick="editPrice('${r.id}')">編集</button><button class="danger" type="button" onclick="deletePrice('${r.id}')">削除</button></div></div>`;
+    return `<div class="item price-item"><div><h3>${escapeHtml(name)}</h3><p class="small"><strong class="date-strong">${formatDate(r.created_at)}</strong> / ${escapeHtml(r.store_name || '店舗未入力')}${r.member_name ? ' / 登録者：' + escapeHtml(r.member_name) : ''}</p></div><span class="badge">${yen(r.price)}</span><div class="item-actions"><button class="ghost" type="button" onclick="editPrice('${r.id}')">編集</button><button class="danger" type="button" onclick="deletePrice('${r.id}')">削除</button></div></div>`;
   }).join('') || '<p class="small">まだ価格履歴がありません。</p>';
 }
 
@@ -825,6 +933,7 @@ function editPrice(id){
   $('storeName').value = storeParts.base;
   if($('storeBranch')) $('storeBranch').value = storeParts.branch;
   $('priceValue').value = r.price || '';
+  if($('priceDate')) $('priceDate').value = (r.created_at || '').slice(0,10) || todayDateInput();
   $('addPriceBtn').textContent = '価格を更新';
   $('cancelPriceEditBtn').classList.remove('hidden');
   document.querySelector('[data-tab="prices"]').click();
@@ -837,6 +946,7 @@ function resetPriceForm(){
   $('priceEditId').value = '';
   $('priceValue').value = '';
   if($('storeBranch')) $('storeBranch').value = '';
+  if($('priceDate')) $('priceDate').value = todayDateInput();
   $('addPriceBtn').textContent = '価格を登録';
   $('cancelPriceEditBtn').classList.add('hidden');
 }
@@ -911,7 +1021,11 @@ async function addProduct(){
   const product_name = $('productName').value.trim();
   if(!product_name){ alert('商品名を入力してください。'); return; }
   const editId = $('productEditId')?.value || '';
-  const item = { product_name, volume: Number($('productVolume').value) || null, unit: $('productUnit').value, category: $('productCategory').value.trim() };
+  if(editId && !pendingProductImageData){
+    const existing = products.find(p => p.id === editId);
+    if(existing?.image_data) pendingProductImageData = existing.image_data;
+  }
+  const item = { product_name, volume: Number($('productVolume').value) || null, unit: $('productUnit').value, category: $('productCategory').value.trim(), image_data: pendingProductImageData || null };
 
   if(mode === 'supabase' && supabaseClient){
     if(editId){
@@ -946,6 +1060,8 @@ function editProduct(id){
   $('productVolume').value = p.volume || '';
   $('productUnit').value = p.unit || 'ml';
   $('productCategory').value = p.category || '';
+  pendingProductImageData = p.image_data || '';
+  setProductImagePreview(pendingProductImageData);
   $('addProductBtn').textContent = '製品を更新';
   $('cancelProductEditBtn').classList.remove('hidden');
   document.querySelector('[data-tab="products"]').click();
@@ -959,6 +1075,9 @@ function resetProductForm(){
   $('productName').value = '';
   $('productVolume').value = '';
   $('productCategory').value = '';
+  pendingProductImageData = '';
+  if($('productImageInput')) $('productImageInput').value = '';
+  setProductImagePreview('');
   $('addProductBtn').textContent = '製品を追加';
   $('cancelProductEditBtn').classList.add('hidden');
 }
@@ -1018,7 +1137,8 @@ async function addPrice(){
   if(!price){ alert('価格を入力してください。'); return; }
   const typedStore = combineStoreName();
   const storeName = typedStore || localStorage.getItem(`lastStoreFor_${product_id}`) || localStorage.getItem('lastStoreName') || '';
-  const item = { product_id, store_name: storeName, price, member_name: getMemberName() };
+  const created_at = dateInputToIso($('priceDate')?.value || todayDateInput());
+  const item = { product_id, store_name: storeName, price, member_name: getMemberName(), created_at };
 
   if(storeName){
     localStorage.setItem('lastStoreName', storeName);
@@ -1030,14 +1150,14 @@ async function addPrice(){
       const res = await supabaseClient.from('price_records').update(item).eq('id', editId);
       if(res.error){ fallbackToLocal(`価格更新に失敗しました：${res.error.message}`); return; }
     } else {
-      const res = await supabaseClient.from('price_records').insert({...item, created_at: new Date().toISOString()}).select().single();
+      const res = await supabaseClient.from('price_records').insert(item).select().single();
       if(res.error){ fallbackToLocal(`価格登録に失敗しました：${res.error.message}`); return; }
     }
   } else {
     if(editId){
       prices = prices.map(r => r.id === editId ? {...r, ...item} : r);
     } else {
-      prices.unshift({ id: uid(), ...item, created_at: new Date().toISOString() });
+      prices.unshift({ id: uid(), ...item });
     }
     saveLocalAll();
   }
@@ -1134,6 +1254,10 @@ const PRODUCT_PHOTO_PROMPT = `あなたは買い物価格管理アプリ「お�
   "category": "",
   "volume": "",
   "unit": "",
+  "store_name": "",
+  "price": "",
+  "tax_type": "",
+  "price_type": "",
   "confidence": "",
   "notes": ""
 }
@@ -1145,6 +1269,10 @@ const PRODUCT_PHOTO_PROMPT = `あなたは買い物価格管理アプリ「お�
 - category は「食品」「飲料」「日用品」「衛生用品」「ベビー用品」「ペット用品」「その他」から選んでください。
 - volume は容量や数量を数字だけで入れてください。例：750、1000、12
 - unit は ml、L、g、kg、個、枚、本、ロール、パック のどれかにしてください。
+- 写真が値札・棚札も含む場合は、price に価格を数字だけで入れてください。
+- store_name が分かる場合は店舗名を入れてください。
+- tax_type は「税込」「税抜」「不明」のどれかにしてください。
+- price_type は「通常」「セール」「クーポン」「不明」のどれかにしてください。
 - confidence は high、medium、low のどれかにしてください。
 - 不明な項目は空欄にしてください。
 - 推測した内容や注意点は notes に短く書いてください。`;
@@ -1162,6 +1290,10 @@ const PRICE_TAG_PROMPT = `あなたは買い物価格管理アプリ「おとく
   "price_type": "",
   "volume": "",
   "unit": "",
+  "store_name": "",
+  "price": "",
+  "tax_type": "",
+  "price_type": "",
   "confidence": "",
   "notes": ""
 }
@@ -1303,9 +1435,27 @@ function normalizeAiData(obj){
     price: pick(obj, ['price','価格','税込価格','金額','sale_price','selling_price']),
     tax_type: pick(obj, ['tax_type','税区分','税込税抜','税']),
     price_type: pick(obj, ['price_type','価格種別','種別','セール種別']),
+    date: pick(obj, ['date','登録日','日付','確認日','購入日']),
     confidence: pick(obj, ['confidence','確信度','信頼度']),
     notes: pick(obj, ['notes','note','メモ','注意点','補足'])
   };
+}
+
+
+function normalizeDateInput(value){
+  const raw = String(value || '').trim();
+  if(!raw) return '';
+  const normalized = raw.replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[年月\.\/]/g,'-').replace(/日/g,'');
+  const parts = normalized.split('-').filter(Boolean);
+  const now = new Date();
+  let y, m, d;
+  if(parts.length >= 3){ y = parts[0]; m = parts[1]; d = parts[2]; }
+  else if(parts.length === 2){ y = String(now.getFullYear()); m = parts[0]; d = parts[1]; }
+  else return '';
+  y = String(y).padStart(4,'20');
+  m = String(m).padStart(2,'0');
+  d = String(d).padStart(2,'0');
+  return `${y}-${m}-${d}`;
 }
 
 function setUnitIfExists(unit){
@@ -1328,6 +1478,12 @@ async function applyProductAiResult(autoRegister=false){
   if(data.volume) $('productVolume').value = String(data.volume).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace('．','.').replace(/[^0-9.]/g,'');
   if(data.unit) setUnitIfExists(data.unit);
   if(data.category) $('productCategory').value = data.category;
+  if(data.price){
+    const price = String(data.price).replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0)).replace(/[^0-9.]/g,'');
+    if(price && $('priceValue')) $('priceValue').value = price;
+  }
+  if(data.store_name && $('storeName')){ const sp = splitStoreName(data.store_name); $('storeName').value = sp.base; if($('storeBranch')) $('storeBranch').value = sp.branch; }
+  if(data.date && $('priceDate')) $('priceDate').value = normalizeDateInput(data.date) || todayDateInput();
   const msg = `反映しました${data.confidence ? `（確信度：${data.confidence}）` : ''}。${autoRegister ? '製品登録まで実行します。' : '内容を確認して「製品を追加」を押してください。'}${data.notes ? ' メモ：' + data.notes : ''}`;
   $('productAiStatus').textContent = msg;
   $('productAiStatus').className = 'small copy-ok';
@@ -1339,7 +1495,10 @@ async function applyProductAiResult(autoRegister=false){
       return;
     }
     await addProduct();
-    setStatus('AI結果から製品を登録しました。続けて価格登録できます。','ok');
+    const hit = products.find(p => p.product_name === data.product_name) || products.find(p => p.product_name && data.product_name && (p.product_name.includes(data.product_name) || data.product_name.includes(p.product_name)));
+    if(hit && $('priceProduct')) $('priceProduct').value = hit.id;
+    if(data.price){ document.querySelector('[data-tab="prices"]')?.click(); setStatus('AI結果から製品を登録し、価格登録欄にも反映しました。日付・店舗・価格を確認して登録してください。','ok'); }
+    else setStatus('AI結果から製品を登録しました。続けて価格登録できます。','ok');
   }else{
     setStatus('商品写真AIの結果を製品登録欄に反映しました。内容を確認してください。','ok');
   }
@@ -1358,6 +1517,7 @@ function applyPriceAiResult(){
     if(price) $('priceValue').value = price;
   }
   if(data.store_name){ const sp = splitStoreName(data.store_name); $('storeName').value = sp.base; if($('storeBranch')) $('storeBranch').value = sp.branch; }
+  if(data.date && $('priceDate')) $('priceDate').value = normalizeDateInput(data.date) || todayDateInput();
   if(data.product_name && products.length){
     const hit = products.find(p => p.product_name === data.product_name) || products.find(p => data.product_name.includes(p.product_name) || p.product_name.includes(data.product_name));
     if(hit) $('priceProduct').value = hit.id;
@@ -1382,6 +1542,8 @@ function setupEvents(){
     $(btn.dataset.tab).classList.add('active');
   }));
 
+  $('productCountCard')?.addEventListener('click', () => { document.querySelector('[data-tab="products"]')?.click(); $('productList')?.scrollIntoView({behavior:'smooth', block:'start'}); });
+  if($('priceDate')) $('priceDate').value = todayDateInput();
   $('settingsBtn').addEventListener('click', () => $('configPanel').classList.toggle('hidden'));
   $('saveSupportBtn')?.addEventListener('click', saveSupportConfig);
   $('resetSupportBtn')?.addEventListener('click', resetSupportConfig);
@@ -1390,12 +1552,16 @@ function setupEvents(){
     localStorage.setItem('supabaseKey', $('supabaseKey').value.trim());
     localStorage.setItem('familyCode', ($('familyCode')?.value || 'default').trim() || 'default');
     localStorage.setItem('memberName', ($('memberName')?.value || currentAccount || '').trim());
+    localStorage.setItem('nearestStation', ($('nearestStation')?.value || '').trim());
+    localStorage.setItem('chatgptLink', ($('chatgptLink')?.value || '').trim());
     initSupabase();
     await loadAll();
   });
   $('clearConfigBtn').addEventListener('click', async () => {
     localStorage.removeItem('supabaseUrl');
     localStorage.removeItem('supabaseKey');
+    localStorage.removeItem('nearestStation');
+    localStorage.removeItem('chatgptLink');
     initSupabase();
     await loadAll();
   });
@@ -1416,6 +1582,8 @@ function setupEvents(){
   $('quickCompareBtn').addEventListener('click', quickCompare);
   $('quickCompareClearBtn').addEventListener('click', clearQuickCompare);
   $('voiceBtn').addEventListener('click', voice);
+  $('openChatgptBtn')?.addEventListener('click', openChatgptLink);
+  $('productImageInput')?.addEventListener('change', (e) => handleProductImageFile(e.target.files?.[0]));
 }
 
 setupEvents();

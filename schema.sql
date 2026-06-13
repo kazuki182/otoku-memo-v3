@@ -27,7 +27,7 @@ create table if not exists approved_accounts (
 );
 
 insert into approved_accounts (account_name, created_by)
-values ('kazuki', 'system')
+values ('kazuki', 'system'), ('Yoshino', 'kazuki')
 on conflict (account_name) do nothing;
 
 
@@ -83,3 +83,5 @@ create policy "public price records" on price_records for all using (true) with 
 create policy "public shopping items" on shopping_items for all using (true) with check (true);
 create policy "public approved accounts" on approved_accounts for all using (true) with check (true);
 create policy "public support settings" on support_settings for all using (true) with check (true);
+
+alter table products add column if not exists image_data text;

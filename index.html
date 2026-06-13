@@ -55,6 +55,18 @@
         </label>
         <p class="small">家族IDを空にすると「default」になります。家族だけで分かる短い英数字がおすすめです。</p>
       </div>
+
+      <div class="area-config-box">
+        <h3>よく使うエリア・ChatGPTリンク</h3>
+        <p class="small">最寄り駅を入れると、店舗候補や「〜店」候補を出しやすくします。ChatGPTリンクを保存するとHOMEから開けます。</p>
+        <label>最寄り駅
+          <input id="nearestStation" list="stationSuggestions" placeholder="例：川口、浦和、大宮、北千住" />
+        </label>
+        <datalist id="stationSuggestions"></datalist>
+        <label>ChatGPTリンク
+          <input id="chatgptLink" placeholder="https://chatgpt.com/g/.... または https://chat.openai.com/..." />
+        </label>
+      </div>
       <div class="account-config-box">
         <h3>アカウント承認</h3>
         <p class="small">管理者 kazuki でログイン中のみ、新しいアカウント名を承認できます。パスワードは全員共通です。</p>
@@ -85,19 +97,25 @@
           <strong id="monthlySavings">0円</strong>
           <span>平均価格との差額で計算</span>
         </div>
-        <div class="saving-card cream">
+        <div id="productCountCard" class="saving-card cream clickable-card" role="button" tabindex="0" aria-label="登録商品一覧を開く">
           <p>登録商品</p>
           <strong id="productCount">0件</strong>
-          <span>製品詳細と価格を記録</span>
+          <span>タップで登録商品一覧へ</span>
         </div>
       </section>
 
-      <section class="family-status-card">
-        <div>
-          <p class="eyebrow mini">共有モード</p>
-          <strong id="familyStatus">家族ID：default</strong>
+
+      <section id="chatgptHomeCard" class="card chatgpt-home-card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow mini">写真AI登録をすぐ使う</p>
+            <h2>自分のChatGPTを開く</h2>
+          </div>
+          <span class="sub-label">HOME</span>
         </div>
-        <span>商品・価格は全体共有 / 買い物リストは家族IDごと / 登録者名を記録</span>
+        <p class="small">設定に登録したChatGPTリンクを開きます。商品写真・値札写真を送って、返ってきた結果を貼り付けて登録できます。</p>
+        <button id="openChatgptBtn" class="primary wide-btn" type="button">ChatGPTを開く</button>
+        <p id="chatgptLinkStatus" class="small"></p>
       </section>
 
       <p id="appStatus" class="notice small">読み込み中...</p>
@@ -175,6 +193,10 @@
           <input id="productEditId" type="hidden" />
           <input id="productName" list="productNameSuggestions" placeholder="製品名 例：アタックZERO 詰め替え" />
           <datalist id="productNameSuggestions"></datalist>
+          <label class="photo-label">製品写真（任意）
+            <input id="productImageInput" type="file" accept="image/*" />
+          </label>
+          <div id="productImagePreview" class="product-image-preview hidden"></div>
           <div id="productQuickChips" class="chip-row assist-chips"></div>
           <div class="form-row">
             <input id="productVolume" type="number" placeholder="容量 例：750" />
@@ -264,7 +286,11 @@
           <datalist id="branchSuggestions">
             <option value="川口店"></option><option value="大宮店"></option><option value="浦和店"></option><option value="越谷店"></option><option value="草加店"></option><option value="所沢店"></option><option value="池袋店"></option><option value="新宿店"></option><option value="北千住店"></option><option value="船橋店"></option><option value="柏店"></option><option value="松戸店"></option>
           </datalist>
+          <div id="branchChips" class="chip-row"></div>
           <p class="small store-help">チェーン名だけでもOK。「～店」まで入れると店舗別履歴がより正確になります。</p>
+          <label class="date-label">登録日・確認日
+            <input id="priceDate" type="date" />
+          </label>
           <input id="priceValue" type="number" inputmode="numeric" placeholder="価格 例：350" />
           <div id="priceChips" class="chip-row assist-chips"></div>
           <div class="button-row price-form-actions">
@@ -321,6 +347,14 @@
             <p id="supportStatus" class="small"></p>
           </div>
         </div>
+      </section>
+
+      <section class="family-status-card bottom-family-status">
+        <div>
+          <p class="eyebrow mini">共有モード</p>
+          <strong id="familyStatus">家族ID：default</strong>
+        </div>
+        <span>商品・価格は全体共有 / 買い物リストは家族IDごと / 登録者名を記録</span>
       </section>
     </main>
   </div>
