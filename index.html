@@ -90,60 +90,21 @@
       <p id="configStatus" class="small"></p>
     </section>
 
-    <main>
-      <section class="grid two">
-        <div class="saving-card">
-          <p>今月の節約額</p>
-          <strong id="monthlySavings">0円</strong>
-          <span>平均価格との差額で計算</span>
-        </div>
-        <div id="productCountCard" class="saving-card cream clickable-card" role="button" tabindex="0" aria-label="登録商品一覧を開く">
-          <p>登録商品</p>
-          <strong id="productCount">0件</strong>
-          <span>タップで登録商品一覧へ</span>
-        </div>
-      </section>
-
-
-      <section id="chatgptHomeCard" class="card chatgpt-home-card">
+    <section id="usageGuidePage" class="usage-guide-page hidden">
+      <div class="card usage-guide guide-full-card">
         <div class="section-title-row">
           <div>
-            <p class="eyebrow mini">写真AI登録をすぐ使う</p>
-            <h2>自分のChatGPTを開く</h2>
-          </div>
-          <span class="sub-label">HOME</span>
-        </div>
-        <p class="small">設定に登録したChatGPTリンクを開きます。商品写真・値札写真を送って、返ってきた結果を貼り付けて登録できます。</p>
-        <button id="openChatgptBtn" class="primary wide-btn" type="button">ChatGPTを開く</button>
-        <p id="chatgptLinkStatus" class="small"></p>
-      </section>
-
-      <section id="howToHomeCard" class="card howto-home-card">
-        <div class="section-title-row">
-          <div>
-            <p class="eyebrow mini">はじめて使う方へ</p>
+            <p class="eyebrow mini">おとくメモの使い方</p>
             <h2>使い方ガイド</h2>
           </div>
-          <span class="sub-label">HELP</span>
-        </div>
-        <p class="small">商品登録、価格登録、AI貼り付け、家族共有の流れをかんたんに確認できます。</p>
-        <button id="openUsageGuideBtn" class="ghost wide-btn" type="button">使い方を見る</button>
-      </section>
-
-      <section id="usageGuide" class="card usage-guide hidden">
-        <div class="section-title-row">
-          <div>
-            <p class="eyebrow mini">おとくメモの基本</p>
-            <h2>使い方</h2>
-          </div>
-          <button id="closeUsageGuideBtn" class="ghost mini-help-btn" type="button">閉じる</button>
+          <button id="closeUsageGuideBtn" class="ghost mini-help-btn" type="button">HOMEへ戻る</button>
         </div>
 
         <div class="guide-step">
           <span>1</span>
           <div>
             <h3>まず商品を登録</h3>
-            <p>商品・価格タブで、普段買う商品を登録します。製品名は候補から選べます。写真を選ぶと商品カードに表示できます。</p>
+            <p>「商品・価格」で、普段買う商品を登録します。製品名は候補から選べます。写真を選ぶと商品カードに表示できます。</p>
           </div>
         </div>
 
@@ -151,22 +112,23 @@
           <span>2</span>
           <div>
             <h3>価格を追加</h3>
-            <p>商品カードの「価格を追加」または「同じ店で追加」から登録します。日付・店舗・価格を入れると、店舗別履歴に残ります。</p>
+            <p>商品カードの「価格を追加」または店舗履歴の「同じ店で追加」から登録します。日付・店舗・価格を入れると、いつ・どの店で・いくらだったか履歴に残ります。</p>
           </div>
         </div>
 
-        <div class="guide-step">
+        <div class="guide-step highlight-guide">
           <span>3</span>
           <div>
-            <h3>値札・商品写真はChatGPTで補助</h3>
-            <p>「商品写真用プロンプト」または「値札用プロンプト」をコピーし、ChatGPTに写真と一緒に送ります。返ってきた結果を貼り付けると入力欄に反映できます。</p>
+            <h3>チャッピーで商品写真・値札写真を読む</h3>
+            <p>アプリの「商品写真用プロンプト」または「値札用プロンプト」をコピーします。HOMEの「ChatGPTを開く」から自分のChatGPTを開き、写真とプロンプトを送ります。返ってきたJSONや文章をアプリの貼り付け欄に入れて「入力欄に反映」または「反映して製品登録」を押してください。</p>
+            <p class="guide-example">値札画像の場合は、価格・店舗名・商品名が読み取れれば価格登録欄にも反映されます。最後に内容を確認して登録してください。</p>
           </div>
         </div>
 
         <div class="guide-step">
           <span>4</span>
           <div>
-            <h3>買い時と履歴を見る</h3>
+            <h3>買い時と価格履歴を見る</h3>
             <p>商品カードでは、最新価格・最安値・平均価格・買い時判定を確認できます。詳細を開くと、店舗別価格履歴とグラフが見られます。</p>
           </div>
         </div>
@@ -184,9 +146,49 @@
           <button class="ghost" type="button" data-guide-tab="prices">価格登録へ</button>
           <button class="ghost" type="button" data-guide-tab="shopping">買い物リストへ</button>
         </div>
+      </div>
+    </section>
+
+    <main id="mainContent">
+      <section id="howToHomeCard" class="card howto-home-card top-help-card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow mini">はじめて使う方へ</p>
+            <h2>使い方ガイド</h2>
+          </div>
+          <span class="sub-label">HELP</span>
+        </div>
+        <p class="small">商品登録、価格登録、チャッピー貼り付け、家族共有の流れを別ページで確認できます。</p>
+        <button id="openUsageGuideBtn" class="primary wide-btn" type="button">使い方を見る</button>
+      </section>
+
+      <section class="grid two">
+        <div class="saving-card">
+          <p>今月の節約額</p>
+          <strong id="monthlySavings">0円</strong>
+          <span>平均価格との差額で計算</span>
+        </div>
+        <div id="productCountCard" class="saving-card cream clickable-card" role="button" tabindex="0" aria-label="登録商品一覧を開く">
+          <p>登録商品</p>
+          <strong id="productCount">0件</strong>
+          <span>タップで登録商品一覧へ</span>
+        </div>
       </section>
 
       <p id="appStatus" class="notice small">読み込み中...</p>
+
+      <section id="chatgptHomeCard" class="card chatgpt-home-card">
+        <div class="section-title-row">
+          <div>
+            <p class="eyebrow mini">写真AI登録をすぐ使う</p>
+            <h2>自分のChatGPTを開く</h2>
+          </div>
+          <span class="sub-label">HOME</span>
+        </div>
+        <p class="small">設定に登録したChatGPTリンクを開きます。商品写真・値札写真を送って、返ってきた結果を貼り付けて登録できます。</p>
+        <button id="openChatgptBtn" class="primary wide-btn" type="button">ChatGPTを開く</button>
+        <p id="chatgptLinkStatus" class="small"></p>
+      </section>
 
       <section class="card quick-compare-card" id="homeQuickCompare">
         <div class="section-title-row">

@@ -1,5 +1,7 @@
 let supabaseClient = null;
 let mode = 'local';
+const DEFAULT_SUPABASE_URL = 'https://fbsghhnwfxzmiwpllyfr.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'sb_publishable_yjY4AVr03Jpl9C7LpFxNlw_wYMjGE-n';
 let products = [];
 let prices = [];
 let shoppingItems = [];
@@ -496,8 +498,10 @@ function escapeHtml(str){
 }
 
 function initSupabase(){
-  const url = localStorage.getItem('supabaseUrl') || '';
-  const key = localStorage.getItem('supabaseKey') || '';
+  const url = localStorage.getItem('supabaseUrl') || DEFAULT_SUPABASE_URL;
+  const key = localStorage.getItem('supabaseKey') || DEFAULT_SUPABASE_KEY;
+  if(!localStorage.getItem('supabaseUrl') && DEFAULT_SUPABASE_URL) localStorage.setItem('supabaseUrl', DEFAULT_SUPABASE_URL);
+  if(!localStorage.getItem('supabaseKey') && DEFAULT_SUPABASE_KEY) localStorage.setItem('supabaseKey', DEFAULT_SUPABASE_KEY);
   $('supabaseUrl').value = url;
   $('supabaseKey').value = key;
   if($('familyCode')) $('familyCode').value = getFamilyCode();
@@ -510,7 +514,7 @@ function initSupabase(){
   if(url && key && window.supabase){
     supabaseClient = window.supabase.createClient(url, key);
     mode = 'supabase';
-    $('configStatus').textContent = 'Supabase設定があります。接続して読み込みます。';
+    $('configStatus').textContent = 'Supabase設定があります。クラウド保存で読み込みます。';
     return;
   }
 
@@ -526,7 +530,7 @@ async function loadAll(){
   if(mode === 'supabase' && supabaseClient){
     const p = await supabaseClient.from('products').select('*').order('created_at',{ascending:false});
     if(p.error){ fallbackToLocal('商品データの読み込みに失敗したため、ブラウザ内保存に切り替えました。'); return; }
-    const pr = await supabaseClient.from('price_records').select('*, products(product_name)').order('created_at',{ascending:false});
+    const pr = await supabaseClient.from('price_records').select('*').order('created_at',{ascending:false});
     if(pr.error){ fallbackToLocal('価格データの読み込みに失敗したため、ブラウザ内保存に切り替えました。'); return; }
     const s = await supabaseClient.from('shopping_items').select('*').eq('family_code', getFamilyCode()).order('created_at',{ascending:false});
     if(s.error){ fallbackToLocal('買い物リストの読み込みに失敗したため、ブラウザ内保存に切り替えました。'); return; }
@@ -1070,10 +1074,16 @@ async function addProduct(){
   if(mode === 'supabase' && supabaseClient){
     if(editId){
       const res = await supabaseClient.from('products').update(item).eq('id', editId);
-      if(res.error){ fallbackToLocal(`商品更新に失敗しました：${res.error.message}`); return; }
+      if(res.error){
+        setStatus(`クラウドへの商品更新に失敗しました：${res.error.message}。schema.sqlをSupabaseで再実行してください。`, 'error');
+        return;
+      }
     } else {
       const res = await supabaseClient.from('products').insert({...item, created_at: new Date().toISOString()}).select().single();
-      if(res.error){ fallbackToLocal(`商品登録に失敗しました：${res.error.message}`); return; }
+      if(res.error){
+        setStatus(`クラウドへの商品登録に失敗しました：${res.error.message}。schema.sqlをSupabaseで再実行してください。`, 'error');
+        return;
+      }
     }
   } else {
     if(editId){
@@ -1570,16 +1580,20 @@ function applyPriceAiResult(){
 
 
 function openUsageGuide(){
-  const guide = $('usageGuide');
+  const guide = $('usageGuidePage');
+  const main = $('mainContent');
   if(!guide) return;
+  main?.classList.add('hidden');
   guide.classList.remove('hidden');
-  guide.scrollIntoView({behavior:'smooth', block:'start'});
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 function closeUsageGuide(){
-  const guide = $('usageGuide');
+  const guide = $('usageGuidePage');
+  const main = $('mainContent');
   if(!guide) return;
   guide.classList.add('hidden');
+  main?.classList.remove('hidden');
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -1594,8 +1608,12 @@ function setupEvents(){
   $('closeUsageGuideBtn')?.addEventListener('click', closeUsageGuide);
   document.querySelectorAll('[data-guide-tab]').forEach(btn => btn.addEventListener('click', () => {
     const target = btn.dataset.guideTab;
+    closeUsageGuide();
     document.querySelector(`[data-tab="${target}"]`)?.click();
-    document.querySelector('.tabs')?.scrollIntoView({behavior:'smooth', block:'center'});
+    setTimeout(() => {
+      const targetPanel = $(target);
+      targetPanel?.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 120);
   }));
   window.addEventListener('scroll', () => { const b=$('backToTopBtn'); if(b) b.classList.toggle('show', window.scrollY > 420); });
   document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {

@@ -67,3 +67,13 @@ body.auth-unlocked #loginGate{display:none!important}
 
 /* v23: HOME usage guide */
 .howto-home-card{background:linear-gradient(180deg,#ffffff,#fff8fb);border:2px solid #ffd7df}.howto-home-card h2{margin:2px 0 0}.usage-guide{border:2px solid #b7e9d0;background:linear-gradient(180deg,#ffffff,#f7fff9);scroll-margin-top:12px}.guide-step{display:grid;grid-template-columns:42px 1fr;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0}.guide-step>span{display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:999px;background:var(--mint);color:#073d28;font-weight:900}.guide-step h3{margin:0 0 5px;font-size:17px;color:#176243}.guide-step p{margin:0;color:#555;line-height:1.7;font-size:14px}.guide-shortcuts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}.mini-help-btn{min-height:36px;padding:8px 12px;font-size:12px}@media(max-width:640px){.guide-step{grid-template-columns:36px 1fr;padding:12px}.guide-step>span{width:34px;height:34px}.guide-shortcuts{grid-template-columns:1fr}.howto-home-card .wide-btn{min-height:54px}.usage-guide{margin-bottom:14px}}
+
+/* v25: separate usage guide page and fixed bottom main buttons */
+body{padding-bottom:96px}
+.top-help-card{order:-10;margin-top:14px;background:linear-gradient(180deg,#ffffff,#fff8fb);border:2px solid #ffd7df}
+.usage-guide-page{scroll-margin-top:0}
+.guide-full-card{margin-top:16px;margin-bottom:110px}
+.highlight-guide{border-color:#b7e9d0;background:#f7fff9}
+.guide-example{margin-top:10px!important;background:#fff8d7;border-radius:12px;padding:10px;color:#765d00!important;font-weight:800}
+.tabs{position:fixed;left:50%;transform:translateX(-50%);right:auto;bottom:10px;z-index:80;width:min(760px,calc(100% - 16px));background:rgba(255,253,247,.96);backdrop-filter:blur(8px);padding:8px;border:1px solid var(--line);border-radius:22px;box-shadow:0 8px 30px rgba(0,0,0,.12);display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:0}.tab{font-size:12px;min-height:50px;padding:10px 4px}.bottom-family-status{margin-bottom:130px}.back-to-top{bottom:104px}
+@media(max-width:640px){body{padding-bottom:104px}.tabs{left:8px;right:8px;transform:none;width:auto;grid-template-columns:repeat(5,1fr);bottom:8px}.tab{font-size:11px;padding:10px 3px}.guide-full-card{margin-bottom:120px}.back-to-top{bottom:102px}.top-help-card{margin-top:10px}}
